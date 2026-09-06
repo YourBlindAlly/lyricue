@@ -16,10 +16,12 @@ import type { RootStackParamList } from '../navigation/types';
 import { searchSongWithAi } from '../aiSearch/aiSearchApi';
 import { isAiSearchConfigured } from '../aiSearch/config';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FindSong'>;
 
 export function FindSongScreen({ navigation }: Props) {
+  const strings = useStrings();
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
   const [includeChords, setIncludeChords] = useState(false);
@@ -45,7 +47,7 @@ export function FindSongScreen({ navigation }: Props) {
         },
       });
     } catch (err) {
-      Alert.alert('Search failed', err instanceof Error ? err.message : String(err));
+      Alert.alert(strings.findSong.searchFailedTitle, err instanceof Error ? err.message : String(err));
     } finally {
       setIsSearching(false);
     }
@@ -61,57 +63,50 @@ export function FindSongScreen({ navigation }: Props) {
           hitSlop={LINK_HIT_SLOP}
           onPress={() => navigation.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={strings.findSong.backButtonLabel}
         >
-          <Text style={styles.backLink}>Back</Text>
+          <Text style={styles.backLink}>{strings.findSong.backButtonLabel}</Text>
         </Pressable>
         <Text style={styles.heading} accessibilityRole="header">
-          Search for a Song
+          {strings.findSong.heading}
         </Text>
       </View>
 
       {!configured ? (
-        <Text style={styles.notConfiguredText}>
-          Song search isn't set up yet. It needs a backend server, which hasn't been connected to
-          this build of the app.
-        </Text>
+        <Text style={styles.notConfiguredText}>{strings.findSong.notConfiguredText}</Text>
       ) : (
         <>
-          <Text style={styles.experimentalNotice}>
-            Experimental: this searches the web for lyrics but may not always find a complete
-            result. If the result pasted in the next screen is incomplete or has a problem, tap
-            cancel. You can paste the correct lyrics in yourself instead.
-          </Text>
+          <Text style={styles.experimentalNotice}>{strings.findSong.experimentalNoticeText}</Text>
 
-          <Text style={styles.label}>Title</Text>
+          <Text style={styles.label}>{strings.findSong.titleLabel}</Text>
           <TextInput
             style={styles.input}
             value={title}
             onChangeText={setTitle}
-            placeholder="Song title"
-            accessibilityLabel="Title"
+            placeholder={strings.findSong.titlePlaceholder}
+            accessibilityLabel={strings.findSong.titleLabel}
             returnKeyType="next"
             editable={!isSearching}
           />
 
-          <Text style={styles.label}>Artist (optional, but helps)</Text>
+          <Text style={styles.label}>{strings.findSong.artistLabel}</Text>
           <TextInput
             style={styles.input}
             value={artist}
             onChangeText={setArtist}
-            placeholder="Artist"
-            accessibilityLabel="Artist"
+            placeholder={strings.findSong.artistPlaceholder}
+            accessibilityLabel={strings.findSong.artistAccessibilityLabel}
             returnKeyType="search"
             onSubmitEditing={handleSearch}
             editable={!isSearching}
           />
 
           <View style={styles.chordsRow}>
-            <Text style={styles.chordsLabel}>Include chords</Text>
+            <Text style={styles.chordsLabel}>{strings.findSong.includeChordsLabel}</Text>
             <Switch
               value={includeChords}
               onValueChange={setIncludeChords}
-              accessibilityLabel="Include chords"
+              accessibilityLabel={strings.findSong.includeChordsLabel}
               disabled={isSearching}
             />
           </View>
@@ -121,19 +116,17 @@ export function FindSongScreen({ navigation }: Props) {
             onPress={handleSearch}
             disabled={!canSearch}
             accessibilityRole="button"
-            accessibilityLabel={isSearching ? 'Searching…' : 'Search'}
+            accessibilityLabel={isSearching ? strings.findSong.searchingLabel : strings.findSong.searchLabel}
             accessibilityState={{ disabled: !canSearch }}
           >
             {isSearching ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.searchButtonText}>Search</Text>
+              <Text style={styles.searchButtonText}>{strings.findSong.searchLabel}</Text>
             )}
           </Pressable>
 
-          <Text style={styles.hintText}>
-            You'll get a chance to review the result before it's saved to your library.
-          </Text>
+          <Text style={styles.hintText}>{strings.findSong.hintText}</Text>
         </>
       )}
     </KeyboardAvoidingView>

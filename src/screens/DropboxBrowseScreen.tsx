@@ -21,10 +21,12 @@ import {
   saveDropboxSortMode,
 } from '../cloud/dropbox/dropboxSortPreference';
 import { sortDropboxEntriesForDisplay } from '../cloud/dropbox/sortDropboxEntries';
+import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DropboxBrowse'>;
 
 export function DropboxBrowseScreen({ navigation, route }: Props) {
+  const strings = useStrings();
   const path = route.params?.path ?? '';
   const { loadSong, addToLibrary } = useAppState();
   const { isConnected, isChecking, connect, disconnect } = useDropboxAuth();
@@ -81,7 +83,7 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
   const handleConnect = async () => {
     const result = await connect();
     if (!result.success && result.error) {
-      Alert.alert('Couldn’t connect to Dropbox', result.error);
+      Alert.alert(strings.dropboxBrowse.couldntConnectAlertTitle, result.error);
     }
   };
 
@@ -107,14 +109,14 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
       const text = await downloadDropboxFile(entry.path);
       const song = buildSongFromFile(text, entry.name, { type: 'dropbox', path: entry.path });
       if (!song) {
-        Alert.alert('Empty file', `"${entry.name}" doesn't have any lyric lines in it.`);
+        Alert.alert(strings.dropboxBrowse.emptyFileAlertTitle, strings.dropboxBrowse.emptyFileAlertMessage(entry.name));
         return;
       }
       await loadSong(song);
       // popTo, not navigate — see PromptScreen's "Library" link for why.
       navigation.popTo('Prompt');
     } catch (err) {
-      Alert.alert('Download failed', err instanceof Error ? err.message : String(err));
+      Alert.alert(strings.dropboxBrowse.downloadFailedAlertTitle, err instanceof Error ? err.message : String(err));
     } finally {
       setIsDownloading(false);
     }
@@ -165,10 +167,10 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
     setImportProgress(null);
     setIsSelectMode(false);
     setSelectedPaths(new Set());
-    const parts = [`Imported ${imported} song${imported === 1 ? '' : 's'}.`];
-    if (skipped > 0) parts.push(`${skipped} had no lyric lines and were skipped.`);
-    if (failed > 0) parts.push(`${failed} failed to download.`);
-    Alert.alert('Import complete', parts.join(' '));
+    const parts = [strings.dropboxBrowse.importedSongsText(imported)];
+    if (skipped > 0) parts.push(strings.dropboxBrowse.skippedSongsText(skipped));
+    if (failed > 0) parts.push(strings.dropboxBrowse.failedSongsText(failed));
+    Alert.alert(strings.dropboxBrowse.importCompleteAlertTitle, parts.join(' '));
   };
 
   if (!isDropboxConfigured) {
@@ -179,25 +181,19 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
             hitSlop={LINK_HIT_SLOP}
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={strings.dropboxBrowse.backButtonLabel}
           >
-            <Text style={styles.backLink}>Back</Text>
+            <Text style={styles.backLink}>{strings.dropboxBrowse.backButtonLabel}</Text>
           </Pressable>
           <Text style={styles.heading} accessibilityRole="header">
-            Dropbox
+            {strings.dropboxBrowse.heading}
           </Text>
         </View>
-        <Text style={styles.infoText}>
-          Dropbox isn't set up yet. To enable it, create an app at
-          dropbox.com/developers/apps, add the files.metadata.read and
-          files.content.read permissions, add this redirect URI under OAuth 2:
-        </Text>
+        <Text style={styles.infoText}>{strings.dropboxBrowse.notConfiguredInfoText1}</Text>
         <Text selectable style={styles.codeText}>
           {redirectUri}
         </Text>
-        <Text style={styles.infoText}>
-          Then give me the app key and I'll wire it in.
-        </Text>
+        <Text style={styles.infoText}>{strings.dropboxBrowse.notConfiguredInfoText2}</Text>
       </SafeAreaView>
     );
   }
@@ -218,21 +214,21 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
             hitSlop={LINK_HIT_SLOP}
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={strings.dropboxBrowse.backButtonLabel}
           >
-            <Text style={styles.backLink}>Back</Text>
+            <Text style={styles.backLink}>{strings.dropboxBrowse.backButtonLabel}</Text>
           </Pressable>
           <Text style={styles.heading} accessibilityRole="header">
-            Dropbox
+            {strings.dropboxBrowse.heading}
           </Text>
         </View>
         <Pressable
           style={styles.connectButton}
           onPress={handleConnect}
           accessibilityRole="button"
-          accessibilityLabel="Connect Dropbox"
+          accessibilityLabel={strings.dropboxBrowse.connectDropboxLabel}
         >
-          <Text style={styles.connectButtonText}>Connect Dropbox</Text>
+          <Text style={styles.connectButtonText}>{strings.dropboxBrowse.connectDropboxLabel}</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -246,12 +242,12 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
             hitSlop={LINK_HIT_SLOP}
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={strings.dropboxBrowse.backButtonLabel}
           >
-            <Text style={styles.backLink}>Back</Text>
+            <Text style={styles.backLink}>{strings.dropboxBrowse.backButtonLabel}</Text>
           </Pressable>
           <Text style={styles.heading} accessibilityRole="header">
-            {path ? path.split('/').pop() : 'Dropbox'}
+            {path ? path.split('/').pop() : strings.dropboxBrowse.heading}
           </Text>
         </View>
         <View style={styles.headerButtons}>
@@ -260,10 +256,10 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
               hitSlop={LINK_HIT_SLOP}
               onPress={handleCycleSort}
               accessibilityRole="button"
-              accessibilityLabel={`Sort: ${SORT_MODE_LABEL[sortMode]}`}
-              accessibilityHint="Tap to change."
+              accessibilityLabel={strings.dropboxBrowse.sortLabel(SORT_MODE_LABEL[sortMode])}
+              accessibilityHint={strings.dropboxBrowse.sortHint}
             >
-              <Text style={styles.selectLink}>Sort: {SORT_MODE_LABEL[sortMode]}</Text>
+              <Text style={styles.selectLink}>{strings.dropboxBrowse.sortLabel(SORT_MODE_LABEL[sortMode])}</Text>
             </Pressable>
           )}
           {files.length > 0 && (
@@ -271,24 +267,24 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
               hitSlop={LINK_HIT_SLOP}
               onPress={handleToggleSelectMode}
               accessibilityRole="button"
-              accessibilityLabel={isSelectMode ? 'Cancel' : 'Select'}
-              accessibilityHint={isSelectMode ? undefined : 'Select multiple songs to import.'}
+              accessibilityLabel={isSelectMode ? strings.dropboxBrowse.selectModeCancelLabel : strings.dropboxBrowse.selectLabel}
+              accessibilityHint={isSelectMode ? undefined : strings.dropboxBrowse.selectHint}
             >
-              <Text style={styles.selectLink}>{isSelectMode ? 'Cancel' : 'Select'}</Text>
+              <Text style={styles.selectLink}>{isSelectMode ? strings.dropboxBrowse.selectModeCancelLabel : strings.dropboxBrowse.selectLabel}</Text>
             </Pressable>
           )}
           <Pressable
             hitSlop={LINK_HIT_SLOP}
             onPress={disconnect}
             accessibilityRole="button"
-            accessibilityLabel="Disconnect"
+            accessibilityLabel={strings.dropboxBrowse.disconnectLabel}
           >
-            <Text style={styles.disconnectLink}>Disconnect</Text>
+            <Text style={styles.disconnectLink}>{strings.dropboxBrowse.disconnectLabel}</Text>
           </Pressable>
         </View>
       </View>
 
-      {accountEmail && <Text style={styles.accountText}>Connected as {accountEmail}</Text>}
+      {accountEmail && <Text style={styles.accountText}>{strings.dropboxBrowse.connectedAsText(accountEmail)}</Text>}
 
       {isSelectMode && (
         <View style={styles.selectBar}>
@@ -296,10 +292,10 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
             hitSlop={LINK_HIT_SLOP}
             onPress={handleSelectAll}
             accessibilityRole="button"
-            accessibilityLabel={selectedPaths.size === files.length ? 'Deselect All' : 'Select All'}
+            accessibilityLabel={selectedPaths.size === files.length ? strings.dropboxBrowse.deselectAllLabel : strings.dropboxBrowse.selectAllLabel}
           >
             <Text style={styles.selectLink}>
-              {selectedPaths.size === files.length ? 'Deselect All' : 'Select All'}
+              {selectedPaths.size === files.length ? strings.dropboxBrowse.deselectAllLabel : strings.dropboxBrowse.selectAllLabel}
             </Text>
           </Pressable>
           <Pressable
@@ -307,16 +303,16 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
             onPress={handleImportSelected}
             disabled={selectedPaths.size === 0 || importProgress !== null}
             accessibilityRole="button"
-            accessibilityLabel={`Import ${selectedPaths.size} Selected`}
+            accessibilityLabel={strings.dropboxBrowse.importSelectedLabel(selectedPaths.size)}
           >
-            <Text style={styles.importButtonText}>Import {selectedPaths.size} Selected</Text>
+            <Text style={styles.importButtonText}>{strings.dropboxBrowse.importSelectedLabel(selectedPaths.size)}</Text>
           </Pressable>
         </View>
       )}
 
       {importProgress && (
         <Text style={styles.accountText} accessibilityLiveRegion="polite">
-          Importing {importProgress.done} of {importProgress.total}…
+          {strings.dropboxBrowse.importingProgressText(importProgress.done, importProgress.total)}
         </Text>
       )}
 
@@ -329,7 +325,7 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
         <FlatList
           data={sortedEntries}
           keyExtractor={(item) => item.path}
-          ListEmptyComponent={<Text style={styles.emptyText}>Nothing here.</Text>}
+          ListEmptyComponent={<Text style={styles.emptyText}>{strings.dropboxBrowse.emptyText}</Text>}
           renderItem={({ item }) => {
             const isSelected = selectedPaths.has(item.path);
             return (
@@ -342,10 +338,12 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
                 }
                 accessibilityLabel={
                   item.isFolder
-                    ? `${item.name}, folder`
+                    ? strings.dropboxBrowse.entryFolderAccessibilityLabel(item.name)
                     : isSelectMode
-                      ? `${item.name}, ${isSelected ? 'selected' : 'not selected'}`
-                      : `${item.name}, song`
+                      ? (isSelected
+                          ? strings.dropboxBrowse.entrySelectedAccessibilityLabel(item.name)
+                          : strings.dropboxBrowse.entryNotSelectedAccessibilityLabel(item.name))
+                      : strings.dropboxBrowse.entrySongAccessibilityLabel(item.name)
                 }
               >
                 <Text style={styles.entryText}>

@@ -14,10 +14,12 @@ import { useAppState } from '../state/AppStateContext';
 import { buildSong } from '../parsing/buildSong';
 import { sendSearchFeedback } from '../aiSearch/aiSearchApi';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NewSong'>;
 
 export function InputScreen({ navigation, route }: Props) {
+  const strings = useStrings();
   const editSong = route.params?.editSong;
   const prefill = route.params?.prefill;
   const aiSearchMeta = route.params?.aiSearchMeta;
@@ -64,40 +66,38 @@ export function InputScreen({ navigation, route }: Props) {
     >
       <View style={styles.headerRow}>
         <Text style={styles.heading} accessibilityRole="header">
-          {editSong ? 'Edit Song' : 'Add a Song'}
+          {editSong ? strings.inputScreen.editHeading : strings.inputScreen.addHeading}
         </Text>
         <Pressable
           hitSlop={LINK_HIT_SLOP}
           onPress={handleCancel}
           accessibilityRole="button"
-          accessibilityLabel="Cancel"
+          accessibilityLabel={strings.inputScreen.cancelLabel}
         >
-          <Text style={styles.cancelLink}>Cancel</Text>
+          <Text style={styles.cancelLink}>{strings.inputScreen.cancelLabel}</Text>
         </Pressable>
       </View>
 
-      <Text style={styles.label}>Title (optional)</Text>
+      <Text style={styles.label}>{strings.inputScreen.titleLabel}</Text>
       <TextInput
         style={styles.titleInput}
         value={title}
         onChangeText={setTitle}
-        placeholder="Song title"
-        accessibilityLabel="Title (optional)"
+        placeholder={strings.inputScreen.titlePlaceholder}
+        accessibilityLabel={strings.inputScreen.titleLabel}
         returnKeyType="next"
       />
 
-      <Text style={styles.label}>Lyrics — one line per prompt</Text>
+      <Text style={styles.label}>{strings.inputScreen.lyricsLabel}</Text>
       <TextInput
         style={styles.bodyInput}
         value={rawText}
         onChangeText={setRawText}
-        placeholder={
-          'Paste your lyrics here.\nOne line at a time.\n\nMark sections with -- or [Chorus] if you like.'
-        }
+        placeholder={strings.inputScreen.lyricsPlaceholder}
         placeholderTextColor="#8a8a8a"
         multiline
         textAlignVertical="top"
-        accessibilityLabel="Lyrics — one line per prompt"
+        accessibilityLabel={strings.inputScreen.lyricsLabel}
       />
 
       <Pressable
@@ -105,10 +105,12 @@ export function InputScreen({ navigation, route }: Props) {
         onPress={handleLoad}
         disabled={!canLoad}
         accessibilityRole="button"
-        accessibilityLabel={editSong ? 'Save Changes' : 'Load Song'}
+        accessibilityLabel={editSong ? strings.inputScreen.saveChangesLabel : strings.inputScreen.loadSongLabel}
         accessibilityState={{ disabled: !canLoad }}
       >
-        <Text style={styles.loadButtonText}>{editSong ? 'Save Changes' : 'Load Song'}</Text>
+        <Text style={styles.loadButtonText}>
+          {editSong ? strings.inputScreen.saveChangesLabel : strings.inputScreen.loadSongLabel}
+        </Text>
       </Pressable>
     </KeyboardAvoidingView>
   );

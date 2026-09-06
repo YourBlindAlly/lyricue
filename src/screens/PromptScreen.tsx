@@ -25,6 +25,7 @@ import { wrapChordedSongLines, type LineWrapResult } from '../parsing/wrapLines'
 import { playAdvanceFeedback, playEndOfSongFeedback, playSongChangeFeedback } from '../feedback/feedback';
 import { usePedalInput } from '../pedal/usePedalInput';
 import { ROW_LINK_HIT_SLOP } from '../ui/hitSlop';
+import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Prompt'>;
 
@@ -43,6 +44,7 @@ function accessibilityTraitsProp(traits: string[]) {
 }
 
 export function PromptScreen({ navigation }: Props) {
+  const strings = useStrings();
   // suppressDeactivateWarnings avoids a benign unhandled-rejection when the
   // screen unmounts before the (async, web-only) Wake Lock activation settles.
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
@@ -222,17 +224,21 @@ export function PromptScreen({ navigation }: Props) {
     (direction: 'next' | 'previous') => {
       if (!isFocusedRef.current || !activeSetlist) return;
       playSongChangeFeedback();
-      speakNow(direction === 'next' ? 'Next song' : 'Previous song');
+      speakNow(direction === 'next' ? strings.promptScreen.nextSongAccessibilityLabel : strings.promptScreen.previousSongAccessibilityLabel);
       setlistJumpPendingRef.current = true;
       void advanceSetlist(direction).then((newSong) => {
         if (newSong) return; // the effect above will announce it once displayLines updates
         setlistJumpPendingRef.current = false;
         if (isFocusedRef.current) {
-          speakNow(direction === 'next' ? 'No more songs in this setlist.' : 'Already at the first song.');
+          speakNow(
+            direction === 'next'
+              ? strings.promptScreen.noMoreSongsInSetlistAnnouncement
+              : strings.promptScreen.alreadyAtFirstSongAnnouncement
+          );
         }
       });
     },
-    [activeSetlist, advanceSetlist, speakNow]
+    [activeSetlist, advanceSetlist, speakNow, strings]
   );
 
   const { isPedalConnected } = usePedalInput({
@@ -257,11 +263,11 @@ export function PromptScreen({ navigation }: Props) {
     },
     onDisconnectAlert: () => {
       if (!isFocusedRef.current) return;
-      speakNow('Pedal disconnected. Using on-screen buttons.');
+      speakNow(strings.promptScreen.pedalDisconnectedAnnouncement);
     },
     onConnectAlert: () => {
       if (!isFocusedRef.current) return;
-      speakNow('Pedal connected.');
+      speakNow(strings.promptScreen.pedalConnectedAnnouncement);
     },
   });
 
@@ -301,7 +307,7 @@ export function PromptScreen({ navigation }: Props) {
         <View style={styles.headerTextBlock}>
           <Text style={styles.songTitle} numberOfLines={1}>
             {song.title}
-            {song.key ? ` — Key of ${song.key}` : ''}
+            {song.key ? strings.promptScreen.keyOfSuffix(song.key) : ''}
           </Text>
           {activeSetlist ? (
             // A View wrapping the Text, not the accessibility/adjustable
@@ -315,7 +321,7 @@ export function PromptScreen({ navigation }: Props) {
             <View
               accessible
               accessibilityRole="adjustable"
-              accessibilityHint="Swipe down for the next song, up for the previous."
+              accessibilityHint={strings.promptScreen.setlistJumpHint}
               onAccessibilityAction={(event) => {
                 if (event.nativeEvent.actionName === 'decrement') {
                   jumpSetlistSong('next');
@@ -325,8 +331,11 @@ export function PromptScreen({ navigation }: Props) {
               }}
             >
               <Text style={styles.setlistText} numberOfLines={1}>
-                {activeSetlist.setlist.name} — song {activeSetlist.currentIndex + 1} of{' '}
-                {activeSetlist.setlist.entries.length}
+                {strings.promptScreen.fullSetlistText(
+                  activeSetlist.setlist.name,
+                  activeSetlist.currentIndex + 1,
+                  activeSetlist.setlist.entries.length
+                )}
               </Text>
             </View>
           ) : null}
@@ -342,49 +351,53 @@ export function PromptScreen({ navigation }: Props) {
           <Pressable
             hitSlop={ROW_LINK_HIT_SLOP}
             accessibilityRole="button"
-            accessibilityLabel={isPedalConnected ? 'Pedal: Connected' : 'Pedal: Not Connected'}
+            accessibilityLabel={isPedalConnected ? strings.promptScreen.pedalConnectedStatusLabel : strings.promptScreen.pedalNotConnectedStatusLabel}
             onPress={() => navigation.navigate('PedalSettings')}
           >
-            <Text style={styles.exitLink}>{isPedalConnected ? 'Pedal: Connected' : 'Pedal: Not Connected'}</Text>
-          </Pressable>
-          <Pressable
-            hitSlop={ROW_LINK_HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="Voice"
-            onPress={() => navigation.navigate('VoiceSettings')}
-          >
-            <Text style={styles.exitLink}>Voice</Text>
-          </Pressable>
-          <Pressable
-            hitSlop={ROW_LINK_HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel={`Lines: ${LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET]}`}
-            onPress={handleCycleLineLength}
-          >
             <Text style={styles.exitLink}>
-              Lines: {LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET]}
+              {isPedalConnected ? strings.promptScreen.pedalConnectedStatusLabel : strings.promptScreen.pedalNotConnectedStatusLabel}
             </Text>
           </Pressable>
           <Pressable
             hitSlop={ROW_LINK_HIT_SLOP}
             accessibilityRole="button"
-            accessibilityLabel={includeChords ? 'Chords: On' : 'Chords: Off'}
+            accessibilityLabel={strings.promptScreen.voiceLinkLabel}
+            onPress={() => navigation.navigate('VoiceSettings')}
+          >
+            <Text style={styles.exitLink}>{strings.promptScreen.voiceLinkLabel}</Text>
+          </Pressable>
+          <Pressable
+            hitSlop={ROW_LINK_HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={strings.promptScreen.linesLabel(LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET])}
+            onPress={handleCycleLineLength}
+          >
+            <Text style={styles.exitLink}>
+              {strings.promptScreen.linesLabel(LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET])}
+            </Text>
+          </Pressable>
+          <Pressable
+            hitSlop={ROW_LINK_HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={includeChords ? strings.promptScreen.chordsOnLabel : strings.promptScreen.chordsOffLabel}
             onPress={handleToggleIncludeChords}
           >
-            <Text style={styles.exitLink}>{includeChords ? 'Chords: On' : 'Chords: Off'}</Text>
+            <Text style={styles.exitLink}>
+              {includeChords ? strings.promptScreen.chordsOnLabel : strings.promptScreen.chordsOffLabel}
+            </Text>
           </Pressable>
           <Pressable
             hitSlop={ROW_LINK_HIT_SLOP}
             accessibilityRole="button"
-            accessibilityLabel="Edit"
+            accessibilityLabel={strings.promptScreen.editLinkLabel}
             onPress={() => navigation.navigate('NewSong', { editSong: song })}
           >
-            <Text style={styles.exitLink}>Edit</Text>
+            <Text style={styles.exitLink}>{strings.promptScreen.editLinkLabel}</Text>
           </Pressable>
           <Pressable
             hitSlop={ROW_LINK_HIT_SLOP}
             accessibilityRole="button"
-            accessibilityLabel="Library"
+            accessibilityLabel={strings.promptScreen.libraryLinkLabel}
             // popTo (not navigate) — React Navigation 7 changed navigate()
             // to no longer pop back to an existing route by default (that's
             // now popTo's job specifically); plain navigate('Library') was
@@ -393,7 +406,7 @@ export function PromptScreen({ navigation }: Props) {
             // the actual root cause of the growing navigation stack below.
             onPress={() => navigation.popTo('Library')}
           >
-            <Text style={styles.exitLink}>Library</Text>
+            <Text style={styles.exitLink}>{strings.promptScreen.libraryLinkLabel}</Text>
           </Pressable>
         </View>
       </View>
@@ -412,7 +425,7 @@ export function PromptScreen({ navigation }: Props) {
           // nothing new to say on its own — the actual lyric content is
           // still spoken, just only ever through speakNow, never VoiceOver's
           // separate voice.
-          accessibilityLabel="Lyrics"
+          accessibilityLabel={strings.promptScreen.lyricsAreaAccessibilityLabel}
           // VoiceOver always sends 'increment' for swipe-up and 'decrement'
           // for swipe-down on an adjustable element — that gesture-to-name
           // mapping is fixed, but which app action each one triggers is
@@ -420,7 +433,7 @@ export function PromptScreen({ navigation }: Props) {
           // increment (swipe up) to previous, matching the down-advances
           // feel of the pedal bindings (Page Down/Down Arrow -> next) rather
           // than a slider's up-increases convention (Rusty's call, 2026-08-31).
-          accessibilityHint="Swipe down for the next line, up for the previous."
+          accessibilityHint={strings.promptScreen.lyricsAreaHint}
           onAccessibilityAction={(event) => {
             if (event.nativeEvent.actionName === 'decrement') {
               goNext();
@@ -431,7 +444,7 @@ export function PromptScreen({ navigation }: Props) {
           {...(reduceChatter ? accessibilityTraitsProp(['startsMedia']) : {})}
         >
           <Text style={styles.lineText}>{displayText}</Text>
-          {isEnded ? <Text style={styles.endLabel}>End of song</Text> : null}
+          {isEnded ? <Text style={styles.endLabel}>{strings.promptScreen.endOfSongLabel}</Text> : null}
         </View>
       </GestureDetector>
 
@@ -442,10 +455,10 @@ export function PromptScreen({ navigation }: Props) {
               style={styles.touchStripSongSegment}
               onPress={() => jumpSetlistSong('previous')}
               accessibilityRole="button"
-              accessibilityLabel="Previous song"
+              accessibilityLabel={strings.promptScreen.previousSongAccessibilityLabel}
               {...(reduceChatter ? accessibilityTraitsProp(['startsMedia']) : {})}
             >
-              <Text style={styles.touchStripSongLabel}>‹‹ Song</Text>
+              <Text style={styles.touchStripSongLabel}>{strings.promptScreen.previousSongButtonText}</Text>
             </Pressable>
             <View style={styles.touchStripDivider} />
           </>
@@ -454,20 +467,20 @@ export function PromptScreen({ navigation }: Props) {
           style={styles.touchStripHalf}
           onPress={goPrevious}
           accessibilityRole="button"
-          accessibilityLabel="Previous line"
+          accessibilityLabel={strings.promptScreen.previousLineAccessibilityLabel}
           {...(reduceChatter ? accessibilityTraitsProp(['startsMedia']) : {})}
         >
-          <Text style={styles.touchStripLabel}>‹ Previous</Text>
+          <Text style={styles.touchStripLabel}>{strings.promptScreen.previousLineButtonText}</Text>
         </Pressable>
         <View style={styles.touchStripDivider} />
         <Pressable
           style={styles.touchStripHalf}
           onPress={goNext}
           accessibilityRole="button"
-          accessibilityLabel="Next line"
+          accessibilityLabel={strings.promptScreen.nextLineAccessibilityLabel}
           {...(reduceChatter ? accessibilityTraitsProp(['startsMedia']) : {})}
         >
-          <Text style={styles.touchStripLabel}>Next ›</Text>
+          <Text style={styles.touchStripLabel}>{strings.promptScreen.nextLineButtonText}</Text>
         </Pressable>
         {activeSetlist ? (
           <>
@@ -476,10 +489,10 @@ export function PromptScreen({ navigation }: Props) {
               style={styles.touchStripSongSegment}
               onPress={() => jumpSetlistSong('next')}
               accessibilityRole="button"
-              accessibilityLabel="Next song"
+              accessibilityLabel={strings.promptScreen.nextSongAccessibilityLabel}
               {...(reduceChatter ? accessibilityTraitsProp(['startsMedia']) : {})}
             >
-              <Text style={styles.touchStripSongLabel}>Song ››</Text>
+              <Text style={styles.touchStripSongLabel}>{strings.promptScreen.nextSongButtonText}</Text>
             </Pressable>
           </>
         ) : null}

@@ -6,10 +6,12 @@ import type { RootStackParamList } from '../navigation/types';
 import { useAppState } from '../state/AppStateContext';
 import { deleteSetlist, listSetlists, loadSetlist, type SetlistSummary } from '../setlist/setlistStorage';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Setlists'>;
 
 export function SetlistsScreen({ navigation }: Props) {
+  const strings = useStrings();
   const { activeSetlist, startSetlist, clearSetlist } = useAppState();
   const [setlists, setSetlists] = useState<SetlistSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,32 +44,32 @@ export function SetlistsScreen({ navigation }: Props) {
       const result = await startSetlist(setlist);
       if (!result.started) {
         Alert.alert(
-          'Nothing to play',
-          `None of the songs in "${summary.name}" were found in your library. Import them first, then try this setlist again.`
+          strings.setlists.nothingToPlayAlertTitle,
+          strings.setlists.nothingToPlayAlertMessage(summary.name)
         );
         return;
       }
       // popTo, not navigate — see PromptScreen's "Library" link for why.
       navigation.popTo('Prompt');
     } catch (err) {
-      Alert.alert('Couldn’t load setlist', err instanceof Error ? err.message : String(err));
+      Alert.alert(strings.setlists.couldntLoadSetlistAlertTitle, err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoadingOne(false);
     }
   };
 
   const handleDelete = (summary: SetlistSummary) => {
-    Alert.alert('Delete setlist', `Delete "${summary.name}"? This can't be undone from the app.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(strings.setlists.deleteSetlistAlertTitle, strings.setlists.deleteSetlistAlertMessage(summary.name), [
+      { text: strings.setlists.cancelLabel, style: 'cancel' },
       {
-        text: 'Delete',
+        text: strings.setlists.deleteLabel,
         style: 'destructive',
         onPress: async () => {
           try {
             await deleteSetlist(summary);
             setSetlists((current) => (current ?? []).filter((s) => s.id !== summary.id));
           } catch (err) {
-            Alert.alert('Delete failed', err instanceof Error ? err.message : String(err));
+            Alert.alert(strings.setlists.deleteFailedAlertTitle, err instanceof Error ? err.message : String(err));
           }
         },
       },
@@ -81,12 +83,12 @@ export function SetlistsScreen({ navigation }: Props) {
           hitSlop={LINK_HIT_SLOP}
           onPress={() => navigation.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={strings.setlists.backButtonLabel}
         >
-          <Text style={styles.backLink}>Back</Text>
+          <Text style={styles.backLink}>{strings.setlists.backButtonLabel}</Text>
         </Pressable>
         <Text style={styles.heading} accessibilityRole="header">
-          Setlists
+          {strings.setlists.heading}
         </Text>
       </View>
 
@@ -102,9 +104,9 @@ export function SetlistsScreen({ navigation }: Props) {
         style={styles.newButton}
         onPress={() => navigation.navigate('SetlistCreator')}
         accessibilityRole="button"
-        accessibilityLabel="New Setlist"
+        accessibilityLabel={strings.setlists.newSetlistLabel}
       >
-        <Text style={styles.newButtonText}>New Setlist</Text>
+        <Text style={styles.newButtonText}>{strings.setlists.newSetlistLabel}</Text>
       </Pressable>
 
       {isLoadingOne && <ActivityIndicator color="#fff" style={styles.spinner} />}
@@ -117,9 +119,7 @@ export function SetlistsScreen({ navigation }: Props) {
           data={setlists ?? []}
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
-                <Text style={styles.emptyText}>
-                  No setlists yet. Tap "New Setlist" to build your first one.
-                </Text>
+                <Text style={styles.emptyText}>{strings.setlists.emptyText}</Text>
               }
               renderItem={({ item }) => {
                 // The active setlist's own row does double duty instead of
@@ -142,18 +142,22 @@ export function SetlistsScreen({ navigation }: Props) {
                     accessibilityRole="button"
                     accessibilityLabel={
                       isActive
-                        ? `${item.name}, Playing — song ${activeSetlist!.currentIndex + 1} of ${activeSetlist!.setlist.entries.length}`
+                        ? strings.setlists.activePlayingAccessibilityLabel(
+                            item.name,
+                            activeSetlist!.currentIndex + 1,
+                            activeSetlist!.setlist.entries.length
+                          )
                         : item.name
                     }
                     accessibilityHint={
                       isActive
-                        ? 'Double tap to resume. Swipe up or down to stop following this setlist.'
-                        : 'Double tap to play. Swipe up or down to delete.'
+                        ? strings.setlists.resumeHint
+                        : strings.setlists.playHint
                     }
                     accessibilityActions={
                       isActive
-                        ? [{ name: 'stop', label: 'Stop Following' }]
-                        : [{ name: 'delete', label: 'Delete' }]
+                        ? [{ name: 'stop', label: strings.setlists.stopFollowingActionLabel }]
+                        : [{ name: 'delete', label: strings.setlists.deleteLabel }]
                     }
                     onAccessibilityAction={(event) => {
                       switch (event.nativeEvent.actionName) {
@@ -169,8 +173,10 @@ export function SetlistsScreen({ navigation }: Props) {
                     <Text style={styles.setlistName}>{item.name}</Text>
                     {isActive ? (
                       <Text style={styles.activeText} numberOfLines={1}>
-                        Playing — song {activeSetlist!.currentIndex + 1} of{' '}
-                        {activeSetlist!.setlist.entries.length}
+                        {strings.setlists.playingStatusText(
+                          activeSetlist!.currentIndex + 1,
+                          activeSetlist!.setlist.entries.length
+                        )}
                       </Text>
                     ) : null}
                   </Pressable>

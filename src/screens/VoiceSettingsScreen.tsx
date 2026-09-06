@@ -46,10 +46,9 @@ import {
 } from '../speech/preferredLanguages';
 import { groupVoicesByLanguage } from '../speech/groupVoicesByLanguage';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VoiceSettings'>;
-
-const PREVIEW_TEXT = 'This is what your lyrics will sound like.';
 
 /**
  * A settings row that toggles a boolean, presented as ONE VoiceOver stop
@@ -92,6 +91,7 @@ function ToggleRow({
 }
 
 export function VoiceSettingsScreen({ navigation }: Props) {
+  const strings = useStrings();
   const onBack = () => navigation.goBack();
   const [voices, setVoices] = useState<Voice[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -202,7 +202,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
   // fail silently, read by Rusty as "only the top voice's Preview works").
   const handlePreview = async (voice: Voice) => {
     await Speech.stop();
-    Speech.speak(PREVIEW_TEXT, { voice: voice.identifier, rate, volume });
+    Speech.speak(strings.voiceSettings.previewSpokenText, { voice: voice.identifier, rate, volume });
   };
 
   const sections = useMemo(() => {
@@ -224,17 +224,17 @@ export function VoiceSettingsScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.headerRow}>
-        <Pressable hitSlop={LINK_HIT_SLOP} onPress={onBack} accessibilityRole="button" accessibilityLabel="Back">
-          <Text style={styles.backLink}>Back</Text>
+        <Pressable hitSlop={LINK_HIT_SLOP} onPress={onBack} accessibilityRole="button" accessibilityLabel={strings.voiceSettings.backButtonLabel}>
+          <Text style={styles.backLink}>{strings.voiceSettings.backButtonLabel}</Text>
         </Pressable>
         <Text style={styles.heading} accessibilityRole="header">
-          Voice
+          {strings.voiceSettings.heading}
         </Text>
       </View>
 
       <ToggleRow
-        label="Reduce VoiceOver chatter while performing"
-        hint="Experimental. Tells VoiceOver an audio session is active on the lyrics screen, so it interrupts LyriCue's speech less — touch and buttons still work normally."
+        label={strings.voiceSettings.reduceChatterLabel}
+        hint={strings.voiceSettings.reduceChatterHint}
         value={reduceChatter}
         onValueChange={handleToggleReduceChatter}
       />
@@ -243,11 +243,11 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         style={styles.rateRow}
         onPress={handleCycleRate}
         accessibilityRole="adjustable"
-        accessibilityLabel={`Speaking speed: ${voiceRateLabel(rate)}`}
-        accessibilityHint="Swipe up for faster, down for slower. Double tap to cycle."
+        accessibilityLabel={strings.voiceSettings.speakingSpeedAccessibilityLabel(voiceRateLabel(rate))}
+        accessibilityHint={strings.voiceSettings.speakingSpeedHint}
         accessibilityActions={[
-          { name: 'increment', label: 'Faster' },
-          { name: 'decrement', label: 'Slower' },
+          { name: 'increment', label: strings.voiceSettings.fasterActionLabel },
+          { name: 'decrement', label: strings.voiceSettings.slowerActionLabel },
         ]}
         onAccessibilityAction={(event) => {
           if (event.nativeEvent.actionName === 'increment') {
@@ -257,7 +257,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
           }
         }}
       >
-        <Text style={styles.actionLabel}>Speaking speed</Text>
+        <Text style={styles.actionLabel}>{strings.voiceSettings.speakingSpeedText}</Text>
         <Text style={styles.rateValue}>{voiceRateLabel(rate)}</Text>
       </Pressable>
 
@@ -265,11 +265,11 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         style={styles.rateRow}
         onPress={handleCycleVolume}
         accessibilityRole="adjustable"
-        accessibilityLabel={`Speaking volume: ${voiceVolumeLabel(volume)}`}
-        accessibilityHint="Swipe up for louder, down for quieter. Double tap to cycle."
+        accessibilityLabel={strings.voiceSettings.speakingVolumeAccessibilityLabel(voiceVolumeLabel(volume))}
+        accessibilityHint={strings.voiceSettings.speakingVolumeHint}
         accessibilityActions={[
-          { name: 'increment', label: 'Louder' },
-          { name: 'decrement', label: 'Quieter' },
+          { name: 'increment', label: strings.voiceSettings.louderActionLabel },
+          { name: 'decrement', label: strings.voiceSettings.quieterActionLabel },
         ]}
         onAccessibilityAction={(event) => {
           if (event.nativeEvent.actionName === 'increment') {
@@ -279,7 +279,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
           }
         }}
       >
-        <Text style={styles.actionLabel}>Speaking volume</Text>
+        <Text style={styles.actionLabel}>{strings.voiceSettings.speakingVolumeText}</Text>
         <Text style={styles.rateValue}>{voiceVolumeLabel(volume)}</Text>
       </Pressable>
 
@@ -287,16 +287,16 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         style={[styles.voiceRow, selectedId === null && styles.voiceRowSelected]}
         onPress={handleUseDefault}
         accessibilityRole="button"
-        accessibilityLabel="System default"
+        accessibilityLabel={strings.voiceSettings.systemDefaultLabel}
         accessibilityState={{ selected: selectedId === null }}
       >
-        <Text style={styles.voiceName}>System default</Text>
-        {selectedId === null ? <Text style={styles.selectedMark}>Selected</Text> : null}
+        <Text style={styles.voiceName}>{strings.voiceSettings.systemDefaultLabel}</Text>
+        {selectedId === null ? <Text style={styles.selectedMark}>{strings.voiceSettings.selectedLabel}</Text> : null}
       </Pressable>
 
       {currentVoice ? (
         <View style={styles.currentVoiceBlock}>
-          <Text style={styles.currentVoiceLabel}>Current voice</Text>
+          <Text style={styles.currentVoiceLabel}>{strings.voiceSettings.currentVoiceLabel}</Text>
           <View style={[styles.voiceRow, styles.voiceRowSelected]}>
             <View style={styles.voiceInfo}>
               <Text style={styles.voiceName}>{currentVoice.name}</Text>
@@ -306,24 +306,24 @@ export function VoiceSettingsScreen({ navigation }: Props) {
               style={styles.previewButton}
               onPress={() => handlePreview(currentVoice)}
               accessibilityRole="button"
-              accessibilityLabel="Preview"
+              accessibilityLabel={strings.voiceSettings.previewButtonLabel}
             >
-              <Text style={styles.previewButtonText}>Preview</Text>
+              <Text style={styles.previewButtonText}>{strings.voiceSettings.previewButtonLabel}</Text>
             </Pressable>
           </View>
         </View>
       ) : null}
 
       <ToggleRow
-        label="Show all languages"
-        hint="Off by default — only shows English and your device's other configured language(s)."
+        label={strings.voiceSettings.showAllLanguagesLabel}
+        hint={strings.voiceSettings.showAllLanguagesHint}
         value={showAllLanguages}
         onValueChange={handleToggleShowAllLanguages}
       />
 
       <ToggleRow
-        label="Show lower quality voices"
-        hint="Off by default — only shows the higher quality (Enhanced) voice for each language, not the standard-quality one."
+        label={strings.voiceSettings.showLowQualityLabel}
+        hint={strings.voiceSettings.showLowQualityHint}
         value={showLowQuality}
         onValueChange={handleToggleShowLowQuality}
       />
@@ -334,9 +334,9 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         keyExtractor={(item) => item.identifier}
         ListEmptyComponent={
           voices === null ? (
-            <Text style={styles.loadingText}>Loading voices…</Text>
+            <Text style={styles.loadingText}>{strings.voiceSettings.loadingVoicesText}</Text>
           ) : (
-            <Text style={styles.loadingText}>No voices found on this device.</Text>
+            <Text style={styles.loadingText}>{strings.voiceSettings.noVoicesFoundText}</Text>
           )
         }
         renderSectionHeader={({ section }) => (
@@ -352,20 +352,20 @@ export function VoiceSettingsScreen({ navigation }: Props) {
                 style={styles.voiceInfo}
                 onPress={() => handleSelect(item)}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.name}, ${item.language}`}
+                accessibilityLabel={strings.voiceSettings.voiceRowAccessibilityLabel(item.name, item.language)}
                 accessibilityState={{ selected: isSelected }}
               >
                 <Text style={styles.voiceName}>{item.name}</Text>
                 <Text style={styles.voiceLanguage}>{item.language}</Text>
-                {isSelected ? <Text style={styles.selectedMark}>Selected</Text> : null}
+                {isSelected ? <Text style={styles.selectedMark}>{strings.voiceSettings.selectedLabel}</Text> : null}
               </Pressable>
               <Pressable
                 style={styles.previewButton}
                 onPress={() => handlePreview(item)}
                 accessibilityRole="button"
-                accessibilityLabel="Preview"
+                accessibilityLabel={strings.voiceSettings.previewButtonLabel}
               >
-                <Text style={styles.previewButtonText}>Preview</Text>
+                <Text style={styles.previewButtonText}>{strings.voiceSettings.previewButtonLabel}</Text>
               </Pressable>
             </View>
           );

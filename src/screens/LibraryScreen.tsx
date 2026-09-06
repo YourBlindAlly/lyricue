@@ -14,18 +14,19 @@ import {
 } from '../library/librarySortPreference';
 import { sortLibraryForDisplay } from '../library/sortLibrary';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { useStrings } from '../i18n';
 import type { Song } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Library'>;
 
-const SOURCE_LABEL: Record<Song['source']['type'], string> = {
-  manual: 'Pasted',
-  file: 'Imported file',
-  dropbox: 'Dropbox',
-  demo: 'Demo song',
-};
-
 export function LibraryScreen({ navigation }: Props) {
+  const strings = useStrings();
+  const SOURCE_LABEL: Record<Song['source']['type'], string> = {
+    manual: strings.library.sourceLabelPasted,
+    file: strings.library.sourceLabelImportedFile,
+    dropbox: strings.library.sourceLabelDropbox,
+    demo: strings.library.sourceLabelDemoSong,
+  };
   const { library, isLibraryLoaded, loadSong, removeFromLibrary } = useAppState();
   const [isImporting, setIsImporting] = useState(false);
   const [sortMode, setSortMode] = useState(DEFAULT_SORT_MODE);
@@ -81,11 +82,11 @@ export function LibraryScreen({ navigation }: Props) {
     } catch (err) {
       if (err instanceof Error && err.message === 'TIMEOUT') {
         Alert.alert(
-          'File picker unresponsive',
-          "The file picker didn't respond in time — this can happen when browsing into Google Drive. Try again and use local files or iCloud, or use the Dropbox button for cloud files."
+          strings.library.filePickerUnresponsiveTitle,
+          strings.library.filePickerUnresponsiveMessage
         );
       } else {
-        Alert.alert('Import failed', err instanceof Error ? err.message : String(err));
+        Alert.alert(strings.library.importFailedTitle, err instanceof Error ? err.message : String(err));
       }
     } finally {
       setIsImporting(false);
@@ -93,9 +94,9 @@ export function LibraryScreen({ navigation }: Props) {
   };
 
   const handleRemove = (song: Song) => {
-    Alert.alert('Remove song', `Remove "${song.title}" from your library?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => removeFromLibrary(song.id) },
+    Alert.alert(strings.library.removeSongAlertTitle, strings.library.removeSongAlertMessage(song.title), [
+      { text: strings.library.cancelLabel, style: 'cancel' },
+      { text: strings.library.removeLabel, style: 'destructive', onPress: () => removeFromLibrary(song.id) },
     ]);
   };
 
@@ -103,15 +104,15 @@ export function LibraryScreen({ navigation }: Props) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.headerRow}>
         <Text style={styles.heading} accessibilityRole="header">
-          Your Songs
+          {strings.library.heading}
         </Text>
         <Pressable
           hitSlop={LINK_HIT_SLOP}
           onPress={() => navigation.navigate('About')}
           accessibilityRole="button"
-          accessibilityLabel="About LyriCue"
+          accessibilityLabel={strings.library.aboutAccessibilityLabel}
         >
-          <Text style={styles.aboutLink}>About</Text>
+          <Text style={styles.aboutLink}>{strings.library.aboutLinkText}</Text>
         </Pressable>
       </View>
 
@@ -124,43 +125,43 @@ export function LibraryScreen({ navigation }: Props) {
           style={styles.actionButton}
           onPress={() => navigation.navigate('DropboxBrowse')}
           accessibilityRole="button"
-          accessibilityLabel="Dropbox"
+          accessibilityLabel={strings.library.dropboxButtonLabel}
         >
-          <Text style={styles.actionButtonText}>Dropbox</Text>
+          <Text style={styles.actionButtonText}>{strings.library.dropboxButtonLabel}</Text>
         </Pressable>
         <Pressable
           style={styles.actionButton}
           onPress={() => navigation.navigate('Setlists')}
           accessibilityRole="button"
-          accessibilityLabel="Setlists"
+          accessibilityLabel={strings.library.setlistsButtonLabel}
         >
-          <Text style={styles.actionButtonText}>Setlists</Text>
+          <Text style={styles.actionButtonText}>{strings.library.setlistsButtonLabel}</Text>
         </Pressable>
         <Pressable
           style={styles.actionButton}
           onPress={() => navigation.navigate('NewSong')}
           accessibilityRole="button"
-          accessibilityLabel="Add a Song"
+          accessibilityLabel={strings.library.addSongButtonLabel}
         >
-          <Text style={styles.actionButtonText}>Add a Song</Text>
+          <Text style={styles.actionButtonText}>{strings.library.addSongButtonLabel}</Text>
         </Pressable>
         <Pressable
           style={styles.actionButton}
           onPress={() => navigation.navigate('FindSong')}
           accessibilityRole="button"
-          accessibilityLabel="Search for a Song: Experimental"
+          accessibilityLabel={strings.library.findSongButtonLabel}
         >
-          <Text style={styles.actionButtonText}>Search for a Song: Experimental</Text>
+          <Text style={styles.actionButtonText}>{strings.library.findSongButtonLabel}</Text>
         </Pressable>
         <Pressable
           style={styles.actionButton}
           onPress={handleImportFile}
           disabled={isImporting}
           accessibilityRole="button"
-          accessibilityLabel={isImporting ? 'Importing…' : 'Import File'}
+          accessibilityLabel={isImporting ? strings.library.importingLabel : strings.library.importFileLabel}
         >
           <Text style={styles.actionButtonText}>
-            {isImporting ? 'Importing…' : 'Import File'}
+            {isImporting ? strings.library.importingLabel : strings.library.importFileLabel}
           </Text>
         </Pressable>
       </View>
@@ -170,17 +171,15 @@ export function LibraryScreen({ navigation }: Props) {
           style={styles.sortButton}
           onPress={handleCycleSort}
           accessibilityRole="button"
-          accessibilityLabel={`Sort: ${SORT_MODE_LABEL[sortMode]}`}
-          accessibilityHint="Tap to change."
+          accessibilityLabel={strings.library.sortButtonLabel(SORT_MODE_LABEL[sortMode])}
+          accessibilityHint={strings.library.sortButtonHint}
         >
-          <Text style={styles.sortButtonText}>Sort: {SORT_MODE_LABEL[sortMode]}</Text>
+          <Text style={styles.sortButtonText}>{strings.library.sortButtonLabel(SORT_MODE_LABEL[sortMode])}</Text>
         </Pressable>
       ) : null}
 
       {isLibraryLoaded && library.length === 0 ? (
-        <Text style={styles.emptyText}>
-          No songs yet. Paste one, import a file, or connect Dropbox to get started.
-        </Text>
+        <Text style={styles.emptyText}>{strings.library.emptyLibraryText}</Text>
       ) : (
         <FlatList
           data={sortedLibrary}
@@ -190,16 +189,16 @@ export function LibraryScreen({ navigation }: Props) {
               style={styles.songRow}
               onPress={() => handleOpenSong(item)}
               accessibilityRole="button"
-              accessibilityLabel={`${item.title}, ${SOURCE_LABEL[item.source.type]}`}
-              accessibilityHint="Double tap to open. Swipe up or down for more actions."
+              accessibilityLabel={strings.library.songRowAccessibilityLabel(item.title, SOURCE_LABEL[item.source.type])}
+              accessibilityHint={strings.library.songRowAccessibilityHint}
               // VoiceOver custom actions — swipe up/down while this row has
               // focus to cycle through Edit/Delete, double-tap to perform
               // whichever is selected — instead of separate Edit/Remove
               // buttons that used to cost two extra swipe-stops per song
               // just to move from one song to the next.
               accessibilityActions={[
-                { name: 'edit', label: 'Edit' },
-                { name: 'delete', label: 'Delete' },
+                { name: 'edit', label: strings.library.editActionLabel },
+                { name: 'delete', label: strings.library.deleteActionLabel },
               ]}
               onAccessibilityAction={(event) => {
                 switch (event.nativeEvent.actionName) {

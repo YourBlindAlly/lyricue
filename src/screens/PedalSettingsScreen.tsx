@@ -6,15 +6,16 @@ import type { RootStackParamList } from '../navigation/types';
 import { usePedalInput } from '../pedal/usePedalInput';
 import type { PedalAction } from '../pedal/keyBindings';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PedalSettings'>;
 
-const ACTION_LABELS: Record<PedalAction, string> = {
-  next: 'Next line',
-  previous: 'Previous line',
-};
-
 export function PedalSettingsScreen({ navigation }: Props) {
+  const strings = useStrings();
+  const ACTION_LABELS: Record<PedalAction, string> = {
+    next: strings.pedalSettings.actionLabelNext,
+    previous: strings.pedalSettings.actionLabelPrevious,
+  };
   const onBack = () => navigation.goBack();
 
   const {
@@ -49,34 +50,34 @@ export function PedalSettingsScreen({ navigation }: Props) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.headerRow}>
-          <Pressable hitSlop={LINK_HIT_SLOP} onPress={onBack} accessibilityRole="button" accessibilityLabel="Back">
-            <Text style={styles.backLink}>Back</Text>
+          <Pressable hitSlop={LINK_HIT_SLOP} onPress={onBack} accessibilityRole="button" accessibilityLabel={strings.pedalSettings.backButtonLabel}>
+            <Text style={styles.backLink}>{strings.pedalSettings.backButtonLabel}</Text>
           </Pressable>
         <Text style={styles.heading} accessibilityRole="header">
-          Pedal &amp; Controls
+          {strings.pedalSettings.heading}
         </Text>
       </View>
 
       <Text style={styles.statusText}>
-        {isPedalConnected ? 'Pedal or keyboard connected' : 'No pedal connected'}
+        {isPedalConnected ? strings.pedalSettings.pedalConnectedStatus : strings.pedalSettings.pedalNotConnectedStatus}
       </Text>
 
       {(['next', 'previous'] as PedalAction[]).map((action) => (
         <View key={action} style={styles.actionRow}>
           <Text style={styles.actionLabel}>{ACTION_LABELS[action]}</Text>
           <Text style={styles.currentKeys}>
-            {bindingsForAction(action).map((b) => b.keyName).join(', ') || 'Not set'}
+            {bindingsForAction(action).map((b) => b.keyName).join(', ') || strings.pedalSettings.notSetLabel}
           </Text>
           {isCapturing && capturingAction === action ? (
             <View style={styles.captureRow}>
-              <Text style={styles.capturingText}>Waiting for a press…</Text>
+              <Text style={styles.capturingText}>{strings.pedalSettings.waitingForPressText}</Text>
               <Pressable
                 hitSlop={LINK_HIT_SLOP}
                 onPress={handleCancelCapture}
                 accessibilityRole="button"
-                accessibilityLabel="Cancel"
+                accessibilityLabel={strings.pedalSettings.cancelLabel}
               >
-                <Text style={styles.cancelLink}>Cancel</Text>
+                <Text style={styles.cancelLink}>{strings.pedalSettings.cancelLabel}</Text>
               </Pressable>
             </View>
           ) : (
@@ -85,16 +86,16 @@ export function PedalSettingsScreen({ navigation }: Props) {
               onPress={() => handleAssign(action)}
               disabled={isCapturing}
               accessibilityRole="button"
-              accessibilityLabel="Press a button to assign"
+              accessibilityLabel={strings.pedalSettings.assignButtonLabel}
             >
-              <Text style={styles.assignButtonText}>Press a button to assign</Text>
+              <Text style={styles.assignButtonText}>{strings.pedalSettings.assignButtonLabel}</Text>
             </Pressable>
           )}
         </View>
       ))}
 
       <View style={styles.toggleRow}>
-        <Text style={styles.actionLabel}>Alert when pedal disconnects</Text>
+        <Text style={styles.actionLabel}>{strings.pedalSettings.alertOnDisconnectLabel}</Text>
         <Switch value={alertOnDisconnect} onValueChange={setAlertOnDisconnect} />
       </View>
     </ScrollView>

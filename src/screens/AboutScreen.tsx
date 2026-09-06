@@ -5,12 +5,14 @@ import Constants from 'expo-constants';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'About'>;
 
 const CONTACT_EMAIL = 'rusty.perez@gmail.com';
 
 export function AboutScreen({ navigation }: Props) {
+  const strings = useStrings();
   // On a genuine first launch, About is the root screen — there's nothing to
   // go back to. A "Back" link there would be confusing (nothing was
   // navigated away from), so first-time visitors get a clear "Get Started"
@@ -26,13 +28,13 @@ export function AboutScreen({ navigation }: Props) {
             hitSlop={LINK_HIT_SLOP}
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={strings.about.backButtonLabel}
           >
-            <Text style={styles.backLink}>Back</Text>
+            <Text style={styles.backLink}>{strings.about.backButtonLabel}</Text>
           </Pressable>
         )}
         <Text style={styles.heading} accessibilityRole="header">
-          About LyriCue
+          {strings.about.heading}
         </Text>
       </View>
 
@@ -45,39 +47,26 @@ export function AboutScreen({ navigation }: Props) {
           accessible={false}
         />
 
-        <Text style={styles.paragraph}>
-          LyriCue reads your lyrics out loud, one line at a time, while you perform live. I built
-          it for myself. I'm a blind singer-songwriter, and reading a lyric sheet on stage was
-          never an option for me. LyriCue works fine for sighted performers too.
-        </Text>
+        <Text style={styles.paragraph}>{strings.about.introParagraph}</Text>
 
-        <Text style={styles.paragraph}>
-          Advance to the next line with a foot pedal or a swipe down in the lyrics area. LyriCue
-          has its own voice, separate from VoiceOver, so it sounds and works the same whether
-          VoiceOver is on or off.
-        </Text>
+        <Text style={styles.paragraph}>{strings.about.pedalParagraph}</Text>
 
-        <Text style={styles.paragraph}>
-          Getting started: the fastest way in is to try one of the built-in demo songs first,
-          just to get a feel for it. Or if there's a song you already know by heart, use your
-          phone's dictation to speak it straight into the New Song screen, saying "new line"
-          between lines so each one lands on its own line.
-        </Text>
+        <Text style={styles.paragraph}>{strings.about.gettingStartedParagraph}</Text>
 
-        <Text style={styles.paragraph}>
-          Something not working, or have an idea for a feature? Email {CONTACT_EMAIL}.
-        </Text>
+        <Text style={styles.paragraph}>{strings.about.feedbackParagraph(CONTACT_EMAIL)}</Text>
 
-        <Text style={styles.versionText}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
+        <Text style={styles.versionText}>
+          {strings.about.versionText(Constants.expoConfig?.version ?? '1.0.0')}
+        </Text>
 
         {isFirstLaunch && (
           <Pressable
             style={styles.continueButton}
             onPress={handleContinue}
             accessibilityRole="button"
-            accessibilityLabel="Get Started"
+            accessibilityLabel={strings.about.getStartedButtonLabel}
           >
-            <Text style={styles.continueButtonText}>Get Started</Text>
+            <Text style={styles.continueButtonText}>{strings.about.getStartedButtonLabel}</Text>
           </Pressable>
         )}
       </ScrollView>

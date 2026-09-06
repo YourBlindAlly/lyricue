@@ -8,6 +8,7 @@ import { saveSetlist } from '../setlist/setlistStorage';
 import type { SetlistEntry } from '../setlist/setlistCsv';
 import type { Song } from '../types';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SetlistCreator'>;
 
@@ -19,6 +20,7 @@ function entryFor(song: Song): SetlistEntry {
 }
 
 export function SetlistCreatorScreen({ navigation }: Props) {
+  const strings = useStrings();
   const { library } = useAppState();
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
@@ -75,11 +77,11 @@ export function SetlistCreatorScreen({ navigation }: Props) {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Name needed', 'Give this setlist a name before saving.');
+      Alert.alert(strings.setlistCreator.nameNeededAlertTitle, strings.setlistCreator.nameNeededAlertMessage);
       return;
     }
     if (entries.length === 0) {
-      Alert.alert('No songs added', 'Add at least one song before saving.');
+      Alert.alert(strings.setlistCreator.noSongsAddedAlertTitle, strings.setlistCreator.noSongsAddedAlertMessage);
       return;
     }
     setIsSaving(true);
@@ -87,7 +89,7 @@ export function SetlistCreatorScreen({ navigation }: Props) {
       await saveSetlist({ name: name.trim(), entries });
       navigation.goBack();
     } catch (err) {
-      Alert.alert('Save failed', err instanceof Error ? err.message : String(err));
+      Alert.alert(strings.setlistCreator.saveFailedAlertTitle, err instanceof Error ? err.message : String(err));
     } finally {
       setIsSaving(false);
     }
@@ -100,12 +102,12 @@ export function SetlistCreatorScreen({ navigation }: Props) {
           hitSlop={LINK_HIT_SLOP}
           onPress={() => navigation.goBack()}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={strings.setlistCreator.backButtonLabel}
         >
-          <Text style={styles.backLink}>Back</Text>
+          <Text style={styles.backLink}>{strings.setlistCreator.backButtonLabel}</Text>
         </Pressable>
         <Text style={styles.heading} accessibilityRole="header">
-          New Setlist
+          {strings.setlistCreator.heading}
         </Text>
       </View>
 
@@ -113,17 +115,17 @@ export function SetlistCreatorScreen({ navigation }: Props) {
         style={styles.nameInput}
         value={name}
         onChangeText={setName}
-        placeholder="Setlist name"
+        placeholder={strings.setlistCreator.setlistNamePlaceholder}
         placeholderTextColor="#777"
-        accessibilityLabel="Setlist name"
+        accessibilityLabel={strings.setlistCreator.setlistNamePlaceholder}
       />
 
       <View style={styles.currentSection}>
         <Text style={styles.sectionLabel} accessibilityRole="header">
-          Songs in this setlist ({entries.length})
+          {strings.setlistCreator.songsInSetlistHeading(entries.length)}
         </Text>
         {entries.length === 0 ? (
-          <Text style={styles.emptyText}>Nothing added yet — pick songs from the list below.</Text>
+          <Text style={styles.emptyText}>{strings.setlistCreator.nothingAddedText}</Text>
         ) : (
           entries.map((entry, index) => {
             const canMoveUp = index > 0;
@@ -134,9 +136,9 @@ export function SetlistCreatorScreen({ navigation }: Props) {
             // the moves that are actually valid at each position (no "Move
             // Up" on the first entry, etc.) rather than a disabled action.
             const actions = [
-              ...(canMoveUp ? [{ name: 'moveUp', label: 'Move Up' }] : []),
-              ...(canMoveDown ? [{ name: 'moveDown', label: 'Move Down' }] : []),
-              { name: 'remove', label: 'Remove' },
+              ...(canMoveUp ? [{ name: 'moveUp', label: strings.setlistCreator.moveUpActionLabel }] : []),
+              ...(canMoveDown ? [{ name: 'moveDown', label: strings.setlistCreator.moveDownActionLabel }] : []),
+              { name: 'remove', label: strings.setlistCreator.removeActionLabel },
             ];
             return (
               <Pressable
@@ -144,8 +146,8 @@ export function SetlistCreatorScreen({ navigation }: Props) {
                 style={styles.entryRow}
                 onPress={() => {}}
                 accessibilityRole="button"
-                accessibilityLabel={`${index + 1}. ${entry.title}`}
-                accessibilityHint="Swipe up or down for move and remove actions."
+                accessibilityLabel={strings.setlistCreator.entryAccessibilityLabel(index + 1, entry.title)}
+                accessibilityHint={strings.setlistCreator.entryHint}
                 accessibilityActions={actions}
                 onAccessibilityAction={(event) => {
                   switch (event.nativeEvent.actionName) {
@@ -176,24 +178,26 @@ export function SetlistCreatorScreen({ navigation }: Props) {
         onPress={handleSave}
         disabled={isSaving}
         accessibilityRole="button"
-        accessibilityLabel={isSaving ? 'Saving…' : 'Save Setlist'}
+        accessibilityLabel={isSaving ? strings.setlistCreator.savingLabel : strings.setlistCreator.saveSetlistLabel}
       >
-        <Text style={styles.saveButtonText}>{isSaving ? 'Saving…' : 'Save Setlist'}</Text>
+        <Text style={styles.saveButtonText}>
+          {isSaving ? strings.setlistCreator.savingLabel : strings.setlistCreator.saveSetlistLabel}
+        </Text>
       </Pressable>
 
       <TextInput
         style={styles.searchInput}
         value={search}
         onChangeText={setSearch}
-        placeholder="Search your songs"
+        placeholder={strings.setlistCreator.searchPlaceholder}
         placeholderTextColor="#777"
-        accessibilityLabel="Search your songs"
+        accessibilityLabel={strings.setlistCreator.searchPlaceholder}
       />
 
       <FlatList
         data={filteredLibrary}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={styles.emptyText}>No songs match.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>{strings.setlistCreator.noSongsMatchText}</Text>}
         renderItem={({ item }) => {
           const added = isAdded(item);
           return (
@@ -202,13 +206,13 @@ export function SetlistCreatorScreen({ navigation }: Props) {
               onPress={() => handleAdd(item)}
               disabled={added}
               accessibilityRole="button"
-              accessibilityLabel={added ? `${item.title}, Added` : item.title}
-              accessibilityHint={added ? undefined : 'Double tap to add.'}
+              accessibilityLabel={added ? strings.setlistCreator.addedAccessibilityLabel(item.title) : item.title}
+              accessibilityHint={added ? undefined : strings.setlistCreator.addHint}
             >
               <Text style={styles.libraryTitle} numberOfLines={1}>
                 {item.title}
               </Text>
-              {added ? <Text style={styles.addedMark}>Added</Text> : null}
+              {added ? <Text style={styles.addedMark}>{strings.setlistCreator.addedMarkText}</Text> : null}
             </Pressable>
           );
         }}
