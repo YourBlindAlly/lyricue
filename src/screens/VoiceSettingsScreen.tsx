@@ -3,6 +3,7 @@ import { Pressable, SectionList, StyleSheet, Switch, Text, View } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import type { Voice } from 'expo-speech';
+import * as Localization from 'expo-localization';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { loadVoicePreference, saveVoicePreference } from '../speech/voicePreference';
@@ -10,6 +11,10 @@ import {
   loadReduceVoiceOverChatter,
   saveReduceVoiceOverChatter,
 } from '../speech/voiceOverPreference';
+import {
+  loadShowLowQualityVoices,
+  saveShowLowQualityVoices,
+} from '../speech/showLowQualityVoicesPreference';
 import {
   DEFAULT_VOICE_RATE,
   decreaseVoiceRate,
@@ -28,6 +33,12 @@ import {
   voiceVolumeLabel,
   type VoiceVolume,
 } from '../speech/voiceVolumePreference';
+import {
+  filterVoicesByLanguages,
+  filterVoicesByQuality,
+  filterWithFailOpen,
+  preferredLanguageCodes,
+} from '../speech/voiceFiltering';
 import { groupVoicesByLanguage } from '../speech/groupVoicesByLanguage';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
@@ -80,23 +91,31 @@ export function VoiceSettingsScreen({ navigation }: Props) {
   const [voices, setVoices] = useState<Voice[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reduceChatter, setReduceChatter] = useState(false);
+  const [showLowQuality, setShowLowQuality] = useState(false);
   const [rate, setRate] = useState<VoiceRate>(DEFAULT_VOICE_RATE);
   const [volume, setVolume] = useState<VoiceVolume>(DEFAULT_VOICE_VOLUME);
+  // English always, plus whatever other language(s) the device itself is
+  // set to (iOS Settings > General > Language & Region) — computed once
+  // from expo-localization rather than re-derived on every render.
+  const [preferredCodes, setPreferredCodes] = useState<string[]>(['en']);
 
   useEffect(() => {
     (async () => {
-      const [available, saved, chatterSetting, savedRate, savedVolume] = await Promise.all([
+      const [available, saved, chatterSetting, showLowQ, savedRate, savedVolume] = await Promise.all([
         Speech.getAvailableVoicesAsync(),
         loadVoicePreference(),
         loadReduceVoiceOverChatter(),
+        loadShowLowQualityVoices(),
         loadVoiceRate(),
         loadVoiceVolume(),
       ]);
       setVoices(available);
       setSelectedId(saved);
       setReduceChatter(chatterSetting);
+      setShowLowQuality(showLowQ);
       setRate(savedRate);
       setVolume(savedVolume);
+      setPreferredCodes(preferredLanguageCodes(Localization.getLocales()));
     })();
     return () => {
       Speech.stop();
@@ -106,6 +125,11 @@ export function VoiceSettingsScreen({ navigation }: Props) {
   const handleToggleReduceChatter = (value: boolean) => {
     setReduceChatter(value);
     void saveReduceVoiceOverChatter(value);
+  };
+
+  const handleToggleShowLowQuality = (value: boolean) => {
+    setShowLowQuality(value);
+    void saveShowLowQualityVoices(value);
   };
 
   // Swipe up/down while focused (VoiceOver's native "adjustable" gesture,
@@ -151,15 +175,22 @@ export function VoiceSettingsScreen({ navigation }: Props) {
     Speech.speak(strings.voiceSettings.previewSpokenText, { voice: voice.identifier, rate, volume });
   };
 
-  // Deliberately unfiltered — shows every voice the device reports,
-  // regardless of language or quality tier. A language/quality filter was
-  // tried here (Show all languages / Show lower quality voices toggles) but
-  // caused the entire list to go empty except the two always-shown special
-  // rows (System default, Current voice), and attempts to fix the filter
-  // logic itself didn't resolve it. Reverted to this simpler, previously-
-  // working version per Rusty's request 2026-09-05 rather than keep
-  // debugging blind without access to his device.
-  const sections = useMemo(() => groupVoicesByLanguage(voices ?? []), [voices]);
+  // Filters by device language(s) then by quality, but each stage is
+  // wrapped in filterWithFailOpen: if a stage would reduce a non-empty list
+  // to nothing, it no-ops instead of hiding everything. This screen's
+  // filtering shipped once already (2026-09-05), went completely empty on
+  // live testing except the two always-shown special rows below, and was
+  // reverted without a fully confirmed root cause — this fail-open
+  // wrapping makes that exact failure mode structurally impossible going
+  // forward, regardless of which stage (or some future device quirk) is
+  // actually at fault. See src/speech/voiceFiltering.ts for the filters
+  // themselves and their tests.
+  const sections = useMemo(() => {
+    const all = voices ?? [];
+    const byLanguage = filterWithFailOpen(all, (vs) => filterVoicesByLanguages(vs, preferredCodes));
+    const byQuality = filterWithFailOpen(byLanguage, (vs) => filterVoicesByQuality(vs, showLowQuality));
+    return groupVoicesByLanguage(byQuality);
+  }, [voices, showLowQuality, preferredCodes]);
 
   // Surfaced near the top so it's findable without scrolling a long,
   // language-grouped list — separate from the always-there "System
@@ -262,6 +293,13 @@ export function VoiceSettingsScreen({ navigation }: Props) {
           </View>
         </View>
       ) : null}
+
+      <ToggleRow
+        label={strings.voiceSettings.showLowQualityLabel}
+        hint={strings.voiceSettings.showLowQualityHint}
+        value={showLowQuality}
+        onValueChange={handleToggleShowLowQuality}
+      />
 
       <SectionList
         style={styles.sectionList}

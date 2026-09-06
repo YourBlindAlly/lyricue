@@ -118,6 +118,9 @@ export const uk: Strings = {
     selectedLabel: 'Вибрано',
     currentVoiceLabel: 'Поточний голос',
     previewButtonLabel: 'Прослухати',
+    showLowQualityLabel: 'Показати голоси нижчої якості',
+    showLowQualityHint:
+      'Вимкнено за замовчуванням — показує лише голоси вищої якості (Enhanced або Premium) для кожної мови, а не стандартної якості.',
     loadingVoicesText: 'Завантаження голосів…',
     noVoicesFoundText: 'На цьому пристрої не знайдено голосів.',
     voiceRowAccessibilityLabel: (name: string, language: string) => `${name}, ${language}`,
