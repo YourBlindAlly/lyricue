@@ -104,12 +104,10 @@ export const uk: Strings = {
     reduceChatterLabel: 'Зменшити повідомлення VoiceOver під час виступу',
     reduceChatterHint:
       'Експериментально. Повідомляє VoiceOver, що на екрані тексту пісні активний аудіосеанс, тому він рідше перериває мовлення LyriCue — дотики та кнопки, як і раніше, працюють нормально.',
-    speakingSpeedAccessibilityLabel: (rate: string) => `Швидкість мовлення: ${rate}`,
     speakingSpeedHint: 'Проведіть вгору, щоб швидше, вниз — щоб повільніше.',
     fasterActionLabel: 'Швидше',
     slowerActionLabel: 'Повільніше',
     speakingSpeedText: 'Швидкість мовлення',
-    speakingVolumeAccessibilityLabel: (volume: string) => `Гучність мовлення: ${volume}`,
     speakingVolumeHint: 'Проведіть вгору, щоб гучніше, вниз — щоб тихіше.',
     louderActionLabel: 'Гучніше',
     quieterActionLabel: 'Тихіше',

@@ -223,7 +223,8 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         style={styles.rateRow}
         accessible
         accessibilityRole="adjustable"
-        accessibilityLabel={strings.voiceSettings.speakingSpeedAccessibilityLabel(voiceRateLabel(rate))}
+        accessibilityLabel={strings.voiceSettings.speakingSpeedText}
+        accessibilityValue={{ text: voiceRateLabel(rate) }}
         accessibilityHint={strings.voiceSettings.speakingSpeedHint}
         accessibilityActions={[
           { name: 'increment', label: strings.voiceSettings.fasterActionLabel },
@@ -245,7 +246,8 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         style={styles.rateRow}
         accessible
         accessibilityRole="adjustable"
-        accessibilityLabel={strings.voiceSettings.speakingVolumeAccessibilityLabel(voiceVolumeLabel(volume))}
+        accessibilityLabel={strings.voiceSettings.speakingVolumeText}
+        accessibilityValue={{ text: voiceVolumeLabel(volume) }}
         accessibilityHint={strings.voiceSettings.speakingVolumeHint}
         accessibilityActions={[
           { name: 'increment', label: strings.voiceSettings.louderActionLabel },

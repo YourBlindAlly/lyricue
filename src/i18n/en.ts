@@ -102,12 +102,10 @@ export const en = {
     reduceChatterLabel: 'Reduce VoiceOver chatter while performing',
     reduceChatterHint:
       "Experimental. Tells VoiceOver an audio session is active on the lyrics screen, so it interrupts LyriCue's speech less — touch and buttons still work normally.",
-    speakingSpeedAccessibilityLabel: (rate: string) => `Speaking speed: ${rate}`,
     speakingSpeedHint: 'Swipe up for faster, down for slower.',
     fasterActionLabel: 'Faster',
     slowerActionLabel: 'Slower',
     speakingSpeedText: 'Speaking speed',
-    speakingVolumeAccessibilityLabel: (volume: string) => `Speaking volume: ${volume}`,
     speakingVolumeHint: 'Swipe up for louder, down for quieter.',
     louderActionLabel: 'Louder',
     quieterActionLabel: 'Quieter',
