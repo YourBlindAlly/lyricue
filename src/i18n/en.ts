@@ -116,12 +116,6 @@ export const en = {
     selectedLabel: 'Selected',
     currentVoiceLabel: 'Current voice',
     previewButtonLabel: 'Preview',
-    showAllLanguagesLabel: 'Show all languages',
-    showAllLanguagesHint:
-      "Off by default — only shows English and your device's other configured language(s).",
-    showLowQualityLabel: 'Show lower quality voices',
-    showLowQualityHint:
-      'Off by default — only shows higher quality (Enhanced or Premium) voices for each language, not the standard-quality one.',
     loadingVoicesText: 'Loading voices…',
     noVoicesFoundText: 'No voices found on this device.',
     voiceRowAccessibilityLabel: (name: string, language: string) => `${name}, ${language}`,
