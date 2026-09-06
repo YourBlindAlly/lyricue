@@ -57,15 +57,30 @@ describe('filterVoicesByQuality', () => {
     { id: '4', quality: 'Default' },
   ];
 
-  it('keeps only Enhanced-quality voices by default', () => {
+  it('keeps only non-Default-quality voices by default', () => {
     expect(filterVoicesByQuality(voices, false).map((v) => v.id)).toEqual(['1', '3']);
+  });
+
+  // Apple's AVSpeechSynthesisVoiceQuality has three tiers (Default,
+  // Enhanced, Premium) — Premium is newer and *higher* quality than
+  // Enhanced, not lower, so it must never be treated as "low quality" and
+  // hidden. Regression test for the 2026-09-05 bug where every Premium
+  // voice on Rusty's phone vanished from the list because the filter only
+  // recognized "Enhanced" as high quality.
+  it('keeps Premium-quality voices by default, alongside Enhanced', () => {
+    const withPremium = [
+      { id: '1', quality: 'Enhanced' },
+      { id: '2', quality: 'Premium' },
+      { id: '3', quality: 'Default' },
+    ];
+    expect(filterVoicesByQuality(withPremium, false).map((v) => v.id)).toEqual(['1', '2']);
   });
 
   it('keeps every voice when includeLowQuality is true', () => {
     expect(filterVoicesByQuality(voices, true)).toEqual(voices);
   });
 
-  it('returns an empty list when nothing is Enhanced quality', () => {
+  it('returns an empty list when nothing is above Default quality', () => {
     const allDefault = [{ id: '1', quality: 'Default' }];
     expect(filterVoicesByQuality(allDefault, false)).toEqual([]);
   });

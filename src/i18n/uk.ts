@@ -105,12 +105,12 @@ export const uk: Strings = {
     reduceChatterHint:
       'Експериментально. Повідомляє VoiceOver, що на екрані тексту пісні активний аудіосеанс, тому він рідше перериває мовлення LyriCue — дотики та кнопки, як і раніше, працюють нормально.',
     speakingSpeedAccessibilityLabel: (rate: string) => `Швидкість мовлення: ${rate}`,
-    speakingSpeedHint: 'Проведіть вгору, щоб швидше, вниз — щоб повільніше. Двічі торкніться для перемикання по колу.',
+    speakingSpeedHint: 'Проведіть вгору, щоб швидше, вниз — щоб повільніше.',
     fasterActionLabel: 'Швидше',
     slowerActionLabel: 'Повільніше',
     speakingSpeedText: 'Швидкість мовлення',
     speakingVolumeAccessibilityLabel: (volume: string) => `Гучність мовлення: ${volume}`,
-    speakingVolumeHint: 'Проведіть вгору, щоб гучніше, вниз — щоб тихіше. Двічі торкніться для перемикання по колу.',
+    speakingVolumeHint: 'Проведіть вгору, щоб гучніше, вниз — щоб тихіше.',
     louderActionLabel: 'Гучніше',
     quieterActionLabel: 'Тихіше',
     speakingVolumeText: 'Гучність мовлення',
@@ -123,7 +123,7 @@ export const uk: Strings = {
       'Вимкнено за замовчуванням — показує лише англійську та інші налаштовані мови вашого пристрою.',
     showLowQualityLabel: 'Показати голоси нижчої якості',
     showLowQualityHint:
-      'Вимкнено за замовчуванням — показує лише голос вищої якості (Enhanced) для кожної мови, а не стандартної якості.',
+      'Вимкнено за замовчуванням — показує лише голоси вищої якості (Enhanced або Premium) для кожної мови, а не стандартної якості.',
     loadingVoicesText: 'Завантаження голосів…',
     noVoicesFoundText: 'На цьому пристрої не знайдено голосів.',
     voiceRowAccessibilityLabel: (name: string, language: string) => `${name}, ${language}`,

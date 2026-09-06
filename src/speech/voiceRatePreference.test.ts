@@ -3,23 +3,11 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 import {
-  nextVoiceRate,
   increaseVoiceRate,
   decreaseVoiceRate,
   voiceRateLabel,
-  RATE_PRESETS,
   DEFAULT_VOICE_RATE,
 } from './voiceRatePreference';
-
-describe('nextVoiceRate', () => {
-  it('cycles through every preset in order and wraps back to the start', () => {
-    for (let i = 0; i < RATE_PRESETS.length; i++) {
-      const current = RATE_PRESETS[i];
-      const expected = RATE_PRESETS[(i + 1) % RATE_PRESETS.length];
-      expect(nextVoiceRate(current)).toBe(expected);
-    }
-  });
-});
 
 describe('increaseVoiceRate', () => {
   it('moves one step faster', () => {

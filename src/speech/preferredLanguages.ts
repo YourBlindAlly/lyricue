@@ -32,12 +32,25 @@ export function filterVoicesByLanguages<T extends { language: string }>(
 }
 
 /**
- * Filters a voice list down to Enhanced-quality voices only, unless
- * `includeLowQuality` is true — most iOS devices have both a "Default"
- * (compact, always present) and an "Enhanced" (higher fidelity, separately
- * downloaded) voice per language; showing only Enhanced by default keeps
- * the list from being dominated by lower-quality entries most people won't
- * want, per Rusty's request 2026-09-05.
+ * Filters a voice list down to higher-than-Default-quality voices, unless
+ * `includeLowQuality` is true — most iOS devices have a "Default" (compact,
+ * always present) voice plus one or more separately-downloaded higher
+ * quality voices per language (Apple's own "Enhanced" and "Premium" tiers,
+ * Premium being the newest and best); showing only the higher tiers by
+ * default keeps the list from being dominated by lower-quality entries most
+ * people won't want, per Rusty's request 2026-09-05.
+ *
+ * expo-speech's iOS native module only checked for `.enhanced` and reported
+ * every other AVSpeechSynthesisVoiceQuality case — including genuine
+ * `.premium` voices — as "Default" (patched in patches/expo-speech+*.patch
+ * to also report "Premium"). Until that patch was added, this filter's
+ * "Enhanced only" default silently hid every Premium-tier voice, which is
+ * actually the *highest* quality Apple offers, not a low one — confirmed
+ * live 2026-09-05 when Rusty's downloaded voices vanished entirely from the
+ * list, leaving only the always-shown System default and current-voice
+ * rows. Checking `!== 'Default'` rather than `=== 'Enhanced'` means any
+ * future Apple quality tier this library maps through correctly still
+ * counts as "not low quality" without needing another one-off fix here.
  */
 export function filterVoicesByQuality<T extends { quality: string }>(
   voices: T[],
@@ -46,5 +59,5 @@ export function filterVoicesByQuality<T extends { quality: string }>(
   if (includeLowQuality) {
     return voices;
   }
-  return voices.filter((voice) => voice.quality === 'Enhanced');
+  return voices.filter((voice) => voice.quality !== 'Default');
 }

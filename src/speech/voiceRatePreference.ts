@@ -23,12 +23,6 @@ export async function saveVoiceRate(rate: VoiceRate): Promise<void> {
   await AsyncStorage.setItem(VOICE_RATE_KEY, String(rate));
 }
 
-/** Cycles through the preset list, wrapping back to the start — for a single tappable button. */
-export function nextVoiceRate(current: VoiceRate): VoiceRate {
-  const index = RATE_PRESETS.indexOf(current);
-  return RATE_PRESETS[(index + 1) % RATE_PRESETS.length];
-}
-
 /**
  * One step faster/slower, clamped at the ends of the preset list rather than
  * wrapping — for the swipe-up/swipe-down "adjustable" gesture (Rusty's

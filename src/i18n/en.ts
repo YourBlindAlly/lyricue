@@ -103,12 +103,12 @@ export const en = {
     reduceChatterHint:
       "Experimental. Tells VoiceOver an audio session is active on the lyrics screen, so it interrupts LyriCue's speech less — touch and buttons still work normally.",
     speakingSpeedAccessibilityLabel: (rate: string) => `Speaking speed: ${rate}`,
-    speakingSpeedHint: 'Swipe up for faster, down for slower. Double tap to cycle.',
+    speakingSpeedHint: 'Swipe up for faster, down for slower.',
     fasterActionLabel: 'Faster',
     slowerActionLabel: 'Slower',
     speakingSpeedText: 'Speaking speed',
     speakingVolumeAccessibilityLabel: (volume: string) => `Speaking volume: ${volume}`,
-    speakingVolumeHint: 'Swipe up for louder, down for quieter. Double tap to cycle.',
+    speakingVolumeHint: 'Swipe up for louder, down for quieter.',
     louderActionLabel: 'Louder',
     quieterActionLabel: 'Quieter',
     speakingVolumeText: 'Speaking volume',
@@ -121,7 +121,7 @@ export const en = {
       "Off by default — only shows English and your device's other configured language(s).",
     showLowQualityLabel: 'Show lower quality voices',
     showLowQualityHint:
-      'Off by default — only shows the higher quality (Enhanced) voice for each language, not the standard-quality one.',
+      'Off by default — only shows higher quality (Enhanced or Premium) voices for each language, not the standard-quality one.',
     loadingVoicesText: 'Loading voices…',
     noVoicesFoundText: 'No voices found on this device.',
     voiceRowAccessibilityLabel: (name: string, language: string) => `${name}, ${language}`,

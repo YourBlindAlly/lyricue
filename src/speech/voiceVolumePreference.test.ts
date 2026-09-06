@@ -3,23 +3,11 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 import {
-  nextVoiceVolume,
   increaseVoiceVolume,
   decreaseVoiceVolume,
   voiceVolumeLabel,
-  VOLUME_PRESETS,
   DEFAULT_VOICE_VOLUME,
 } from './voiceVolumePreference';
-
-describe('nextVoiceVolume', () => {
-  it('cycles through every preset in order and wraps back to the start', () => {
-    for (let i = 0; i < VOLUME_PRESETS.length; i++) {
-      const current = VOLUME_PRESETS[i];
-      const expected = VOLUME_PRESETS[(i + 1) % VOLUME_PRESETS.length];
-      expect(nextVoiceVolume(current)).toBe(expected);
-    }
-  });
-});
 
 describe('increaseVoiceVolume', () => {
   it('moves one step louder', () => {

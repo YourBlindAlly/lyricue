@@ -24,7 +24,6 @@ import {
   decreaseVoiceRate,
   increaseVoiceRate,
   loadVoiceRate,
-  nextVoiceRate,
   saveVoiceRate,
   voiceRateLabel,
   type VoiceRate,
@@ -34,7 +33,6 @@ import {
   decreaseVoiceVolume,
   increaseVoiceVolume,
   loadVoiceVolume,
-  nextVoiceVolume,
   saveVoiceVolume,
   voiceVolumeLabel,
   type VoiceVolume,
@@ -146,14 +144,6 @@ export function VoiceSettingsScreen({ navigation }: Props) {
     void saveShowLowQualityVoices(value);
   };
 
-  const handleCycleRate = () => {
-    setRate((current) => {
-      const next = nextVoiceRate(current);
-      void saveVoiceRate(next);
-      return next;
-    });
-  };
-
   // Swipe up/down while focused (VoiceOver's native "adjustable" gesture,
   // same mechanism as the lyric line and song-jump header elsewhere in the
   // app) — a direct, bidirectional alternative to tapping the button all
@@ -162,14 +152,6 @@ export function VoiceSettingsScreen({ navigation }: Props) {
     setRate((current) => {
       const next = direction === 'increment' ? increaseVoiceRate(current) : decreaseVoiceRate(current);
       void saveVoiceRate(next);
-      return next;
-    });
-  };
-
-  const handleCycleVolume = () => {
-    setVolume((current) => {
-      const next = nextVoiceVolume(current);
-      void saveVoiceVolume(next);
       return next;
     });
   };
@@ -239,9 +221,9 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         onValueChange={handleToggleReduceChatter}
       />
 
-      <Pressable
+      <View
         style={styles.rateRow}
-        onPress={handleCycleRate}
+        accessible
         accessibilityRole="adjustable"
         accessibilityLabel={strings.voiceSettings.speakingSpeedAccessibilityLabel(voiceRateLabel(rate))}
         accessibilityHint={strings.voiceSettings.speakingSpeedHint}
@@ -259,11 +241,11 @@ export function VoiceSettingsScreen({ navigation }: Props) {
       >
         <Text style={styles.actionLabel}>{strings.voiceSettings.speakingSpeedText}</Text>
         <Text style={styles.rateValue}>{voiceRateLabel(rate)}</Text>
-      </Pressable>
+      </View>
 
-      <Pressable
+      <View
         style={styles.rateRow}
-        onPress={handleCycleVolume}
+        accessible
         accessibilityRole="adjustable"
         accessibilityLabel={strings.voiceSettings.speakingVolumeAccessibilityLabel(voiceVolumeLabel(volume))}
         accessibilityHint={strings.voiceSettings.speakingVolumeHint}
@@ -281,7 +263,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
       >
         <Text style={styles.actionLabel}>{strings.voiceSettings.speakingVolumeText}</Text>
         <Text style={styles.rateValue}>{voiceVolumeLabel(volume)}</Text>
-      </Pressable>
+      </View>
 
       <Pressable
         style={[styles.voiceRow, selectedId === null && styles.voiceRowSelected]}

@@ -1,0 +1,13 @@
+diff --git a/node_modules/expo-speech/ios/SpeechModule.swift b/node_modules/expo-speech/ios/SpeechModule.swift
+index ee90632..52b71bb 100644
+--- a/node_modules/expo-speech/ios/SpeechModule.swift
++++ b/node_modules/expo-speech/ios/SpeechModule.swift
+@@ -67,7 +67,7 @@ public final class SpeechModule: Module, SpeechResultHadler {
+         VoiceInfo(
+           identifier: voice.identifier,
+           name: voice.name,
+-          quality: voice.quality == .enhanced ? "Enhanced" : "Default",
++          quality: voice.quality == .premium ? "Premium" : (voice.quality == .enhanced ? "Enhanced" : "Default"),
+           language: voice.language
+         )
+       }

@@ -24,12 +24,6 @@ export async function saveVoiceVolume(volume: VoiceVolume): Promise<void> {
   await AsyncStorage.setItem(VOICE_VOLUME_KEY, String(volume));
 }
 
-/** Cycles through the preset list, wrapping back to the start — for a single tappable button. */
-export function nextVoiceVolume(current: VoiceVolume): VoiceVolume {
-  const index = VOLUME_PRESETS.indexOf(current);
-  return VOLUME_PRESETS[(index + 1) % VOLUME_PRESETS.length];
-}
-
 /** One step louder/quieter, clamped at the ends rather than wrapping — for the swipe-up/down gesture. */
 export function increaseVoiceVolume(current: VoiceVolume): VoiceVolume {
   const index = VOLUME_PRESETS.indexOf(current);
