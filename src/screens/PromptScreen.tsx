@@ -13,10 +13,9 @@ import { loadReduceVoiceOverChatter } from '../speech/voiceOverPreference';
 import {
   DEFAULT_LINE_LENGTH_PRESET,
   LINE_LENGTH_PRESET_LABEL,
-  decreaseLineLengthPreset,
-  increaseLineLengthPreset,
   loadLineLengthPreset,
   nextLineLengthPreset,
+  previousLineLengthPreset,
   saveLineLengthPreset,
   wrapOptionsForPreset,
   type LineLengthPreset,
@@ -112,29 +111,25 @@ export function PromptScreen({ navigation }: Props) {
   // Swipe up/down while focused (VoiceOver's native "adjustable" gesture,
   // same mechanism used for speed/volume in Voice Settings) is the primary
   // way to change Lines/Chords/Line breaks, per Rusty's request 2026-09-07.
-  // Each control ALSO keeps a plain-tap fallback (handleCycleLineLength etc.,
-  // below) — swipe-only would leave sighted/VoiceOver-off users with no way
-  // to change these at all, since adjustable's swipe gesture only exists
-  // when VoiceOver is running. Replaces the old dedicated Line Length
-  // settings screen entirely.
+  // Each control ALSO keeps a plain-tap fallback — swipe-only would leave
+  // sighted/VoiceOver-off users with no way to change these at all, since
+  // adjustable's swipe gesture only exists when VoiceOver is running.
+  // Replaces the old dedicated Line Length settings screen entirely.
+  //
+  // Line Length wraps in both directions (off <-> short <-> medium <-> long
+  // <-> off), unlike most of this app's other adjustable controls — see
+  // lineLengthPreference.ts's PRESET_ORDER comment for why. Tap and
+  // swipe-up both move forward, so they share the same function.
   const handleAdjustLineLength = (direction: 'increment' | 'decrement') => {
     setLineLengthPreset((current) => {
       const base = current ?? DEFAULT_LINE_LENGTH_PRESET;
-      const next = direction === 'increment' ? increaseLineLengthPreset(base) : decreaseLineLengthPreset(base);
+      const next = direction === 'increment' ? nextLineLengthPreset(base) : previousLineLengthPreset(base);
       void saveLineLengthPreset(next);
       return next;
     });
   };
 
-  // Tap fallback for sighted/VoiceOver-off use — cycles with wraparound,
-  // unlike the swipe gesture above which clamps at either end.
-  const handleCycleLineLength = () => {
-    setLineLengthPreset((current) => {
-      const next = nextLineLengthPreset(current ?? DEFAULT_LINE_LENGTH_PRESET);
-      void saveLineLengthPreset(next);
-      return next;
-    });
-  };
+  const handleCycleLineLength = () => handleAdjustLineLength('increment');
 
   const handleAdjustChords = (direction: 'increment' | 'decrement') => {
     const next = direction === 'increment';
@@ -168,6 +163,17 @@ export function PromptScreen({ navigation }: Props) {
     });
   };
 
+  // Breaking at chords only means anything if chords are actually being
+  // announced — with chords off, forcing a break at a chord no one hears
+  // about is pointless. Rather than guess what a chords-off user would want
+  // (Rusty's own point, 2026-09-07: "we don't know where people who want
+  // chords might want it"), the stored preference is left alone — turning
+  // chords back on restores whatever line-break choice was last made — but
+  // the EFFECTIVE value used for wrapping, and the control's own
+  // interactivity, are forced to "Words" whenever chords are off.
+  const lineBreaksInteractive = includeChords === true;
+  const effectiveBreakAtChords = lineBreaksInteractive ? (breakAtChords ?? false) : false;
+
   // Re-wrapping is a system-wide preference (not per-song), applied here at
   // playback time rather than baked into Song.lines, so changing it in
   // Settings immediately affects every song, including ones already in the
@@ -179,13 +185,13 @@ export function PromptScreen({ navigation }: Props) {
     if (!song || lineLengthPreset === null || includeChords === null || breakAtChords === null) {
       return { lines: [], sections: [] };
     }
-    const options = { ...wrapOptionsForPreset(lineLengthPreset), breakAtEveryChord: breakAtChords };
+    const options = { ...wrapOptionsForPreset(lineLengthPreset), breakAtEveryChord: effectiveBreakAtChords };
     return wrapChordedSongLines(
       { chordedLines: song.chordedLines, sections: song.sections },
       options,
       includeChords
     );
-  }, [song, lineLengthPreset, includeChords, breakAtChords]);
+  }, [song, lineLengthPreset, includeChords, effectiveBreakAtChords]);
 
   // The title/key announcement is a synthetic "line 0" ahead of the real
   // lyrics — Rusty relies on hearing the key every time, even for songs he
@@ -460,27 +466,35 @@ export function PromptScreen({ navigation }: Props) {
           <Pressable
             hitSlop={ROW_LINK_HIT_SLOP}
             accessible
-            accessibilityRole="adjustable"
+            accessibilityRole={lineBreaksInteractive ? 'adjustable' : undefined}
             accessibilityLabel={strings.promptScreen.lineBreaksText}
             accessibilityValue={{
-              text: breakAtChords ? strings.promptScreen.lineBreaksChordsValue : strings.promptScreen.lineBreaksWordsValue,
+              text: effectiveBreakAtChords ? strings.promptScreen.lineBreaksChordsValue : strings.promptScreen.lineBreaksWordsValue,
             }}
-            accessibilityHint={strings.promptScreen.lineBreaksHint}
-            accessibilityActions={[
-              { name: 'increment', label: strings.promptScreen.lineBreaksChordsValue },
-              { name: 'decrement', label: strings.promptScreen.lineBreaksWordsValue },
-            ]}
-            onAccessibilityAction={(event) => {
-              if (event.nativeEvent.actionName === 'increment') {
-                handleAdjustLineBreaks('increment');
-              } else if (event.nativeEvent.actionName === 'decrement') {
-                handleAdjustLineBreaks('decrement');
-              }
-            }}
-            onPress={handleToggleLineBreaks}
+            accessibilityHint={lineBreaksInteractive ? strings.promptScreen.lineBreaksHint : undefined}
+            accessibilityActions={
+              lineBreaksInteractive
+                ? [
+                    { name: 'increment', label: strings.promptScreen.lineBreaksChordsValue },
+                    { name: 'decrement', label: strings.promptScreen.lineBreaksWordsValue },
+                  ]
+                : undefined
+            }
+            onAccessibilityAction={
+              lineBreaksInteractive
+                ? (event) => {
+                    if (event.nativeEvent.actionName === 'increment') {
+                      handleAdjustLineBreaks('increment');
+                    } else if (event.nativeEvent.actionName === 'decrement') {
+                      handleAdjustLineBreaks('decrement');
+                    }
+                  }
+                : undefined
+            }
+            onPress={lineBreaksInteractive ? handleToggleLineBreaks : undefined}
           >
-            <Text style={styles.exitLink}>
-              {breakAtChords ? strings.promptScreen.lineBreaksAtChordsLabel : strings.promptScreen.lineBreaksAtWordsLabel}
+            <Text style={[styles.exitLink, !lineBreaksInteractive && styles.exitLinkDisabled]}>
+              {effectiveBreakAtChords ? strings.promptScreen.lineBreaksAtChordsLabel : strings.promptScreen.lineBreaksAtWordsLabel}
             </Text>
           </Pressable>
           <Pressable
@@ -635,6 +649,13 @@ const styles = StyleSheet.create({
   exitLink: {
     color: '#4f8cff',
     fontSize: 16,
+  },
+  // Line breaks control when chords are off — the setting is forced to
+  // "Words" and inert (no swipe or tap) since breaking at a chord no one
+  // hears about is meaningless. Dimmed to show a sighted user it's
+  // currently unavailable, not just a plain, differently-worded link.
+  exitLinkDisabled: {
+    color: '#666',
   },
   lineArea: {
     flex: 1,

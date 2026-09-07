@@ -15,10 +15,12 @@ export const DEFAULT_LINE_LENGTH_PRESET: LineLengthPreset = 'medium';
 
 const LINE_LENGTH_KEY = 'cueme.lineLengthPreset';
 
-// Ordered from "no splitting at all" to "shortest chunks" — the axis the
-// swipe-adjustable header control moves along. Off sits at one end rather
-// than wrapping in after Long, since it isn't "more splitting than Long",
-// it's "no splitting" — a real endpoint, not a fourth step on the scale.
+// Ordered from "no splitting at all" to "shortest chunks" — the axis both
+// the tap and swipe header controls move along, treated as a loop (Off
+// follows Long the same way it precedes Short) rather than a line with hard
+// ends. Rusty's request 2026-09-07: with 4 presets clamped, going from Off
+// to Long took 3 swipes one-way; wrapping caps the worst case at 2 swipes
+// from any preset to any other, in whichever direction is closer.
 const PRESET_ORDER: LineLengthPreset[] = ['off', 'short', 'medium', 'long'];
 
 export async function loadLineLengthPreset(): Promise<LineLengthPreset> {
@@ -34,34 +36,20 @@ export async function saveLineLengthPreset(preset: LineLengthPreset): Promise<vo
 }
 
 /**
- * One step toward longer/shorter lines, clamped at either end rather than
- * wrapping — for the swipe-up/down "adjustable" gesture, same reasoning as
- * voiceRatePreference's increase/decrease (Rusty's 2026-09-07 request to
- * make this swipe-adjustable instead of a tap-to-cycle button, matching the
- * pattern already built for Speed/Volume).
- */
-export function increaseLineLengthPreset(current: LineLengthPreset): LineLengthPreset {
-  const index = PRESET_ORDER.indexOf(current);
-  return PRESET_ORDER[Math.min(index + 1, PRESET_ORDER.length - 1)];
-}
-
-export function decreaseLineLengthPreset(current: LineLengthPreset): LineLengthPreset {
-  const index = PRESET_ORDER.indexOf(current);
-  return PRESET_ORDER[Math.max(index - 1, 0)];
-}
-
-/**
- * Cycles off -> short -> medium -> long -> off, wrapping at the end — for a
- * plain tap, the sighted/VoiceOver-off fallback for this control. Swipe
- * (increase/decrease above) is the primary interaction and doesn't wrap
- * (moving a value you can already move in either direction shouldn't jump to
- * the opposite end), but a single forward-only tap needs somewhere to go
- * after reaching the last option, same as every other tap-cycle button in
- * this app.
+ * Cycles off -> short -> medium -> long -> off, wrapping at the end. Used for
+ * both the tap fallback and swipe-up (increment) — unlike most of this app's
+ * other adjustable controls (speed, volume), this one deliberately wraps in
+ * both directions; see the PRESET_ORDER comment above for why.
  */
 export function nextLineLengthPreset(current: LineLengthPreset): LineLengthPreset {
   const index = PRESET_ORDER.indexOf(current);
   return PRESET_ORDER[(index + 1) % PRESET_ORDER.length];
+}
+
+/** The reverse of nextLineLengthPreset, for swipe-down (decrement). */
+export function previousLineLengthPreset(current: LineLengthPreset): LineLengthPreset {
+  const index = PRESET_ORDER.indexOf(current);
+  return PRESET_ORDER[(index - 1 + PRESET_ORDER.length) % PRESET_ORDER.length];
 }
 
 export const LINE_LENGTH_PRESET_LABEL: Record<LineLengthPreset, string> = {
