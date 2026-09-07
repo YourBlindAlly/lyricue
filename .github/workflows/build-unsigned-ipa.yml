@@ -91,13 +91,13 @@ jobs:
           app_path=$(find build/CueMe.xcarchive/Products/Applications -maxdepth 1 -name "*.app" | head -n1)
           mkdir -p Payload
           cp -r "$app_path" Payload/
-          zip -r CueMe-unsigned.ipa Payload
-          echo "Built: $(ls -la CueMe-unsigned.ipa)"
+          zip -r LyriCue-unsigned.ipa Payload
+          echo "Built: $(ls -la LyriCue-unsigned.ipa)"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CueMe-unsigned-ipa
-          path: CueMe-unsigned.ipa
+          name: LyriCue-unsigned-ipa
+          path: LyriCue-unsigned.ipa
           retention-days: 30
 
       # Workflow artifacts (above) require a logged-in GitHub session to
@@ -107,7 +107,7 @@ jobs:
       # GitHub login, needed. "latest-build" is a single rolling tag/release
       # that gets replaced on every push, so this URL never changes and can
       # be bookmarked once:
-      # https://github.com/<owner>/<repo>/releases/download/latest-build/CueMe-unsigned.ipa
+      # https://github.com/<owner>/<repo>/releases/download/latest-build/LyriCue-unsigned.ipa
       - name: Publish to the rolling "latest-build" release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -115,7 +115,7 @@ jobs:
           gh release delete latest-build --yes --repo "${{ github.repository }}" || true
           git tag -f latest-build
           git push -f origin latest-build
-          gh release create latest-build CueMe-unsigned.ipa \
+          gh release create latest-build LyriCue-unsigned.ipa \
             --repo "${{ github.repository }}" \
             --title "Latest unsigned build" \
             --notes "Automatically published from commit ${{ github.sha }}. Unsigned — install via SideStore/SideInstaller, which applies its own free-Apple-ID signature." \

@@ -82,13 +82,13 @@ jobs:
           app_path=$(find build/CueMePreview.xcarchive/Products/Applications -maxdepth 1 -name "*.app" | head -n1)
           mkdir -p Payload
           cp -r "$app_path" Payload/
-          zip -r CueMe-Preview-unsigned.ipa Payload
-          echo "Built: $(ls -la CueMe-Preview-unsigned.ipa)"
+          zip -r LyriCue-Preview-unsigned.ipa Payload
+          echo "Built: $(ls -la LyriCue-Preview-unsigned.ipa)"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CueMe-Preview-unsigned-ipa
-          path: CueMe-Preview-unsigned.ipa
+          name: LyriCue-Preview-unsigned-ipa
+          path: LyriCue-Preview-unsigned.ipa
           retention-days: 30
 
       # Separate rolling release from the real app's "latest-build" so the
@@ -100,7 +100,7 @@ jobs:
           gh release delete latest-preview-build --yes --repo "${{ github.repository }}" || true
           git tag -f latest-preview-build
           git push -f origin latest-preview-build
-          gh release create latest-preview-build CueMe-Preview-unsigned.ipa \
+          gh release create latest-preview-build LyriCue-Preview-unsigned.ipa \
             --repo "${{ github.repository }}" \
             --title "Latest preview build" \
             --notes "Automatically published from commit ${{ github.sha }}. Separate bundle ID (com.rustyperez.cueme.preview) from the real app — installs side by side with its own storage, for trying out fresh-install behavior safely. Unsigned — install via SideStore/SideInstaller/iLoader like the real app." \
