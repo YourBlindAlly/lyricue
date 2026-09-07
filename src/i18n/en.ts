@@ -10,10 +10,12 @@ export const en = {
     heading: 'About LyriCue',
     introParagraph:
       "LyriCue reads your lyrics out loud, one line at a time, while you perform live. I built it for myself. I'm a blind singer-songwriter, and reading a lyric sheet on stage was never an option for me. LyriCue works fine for sighted performers too.",
-    pedalParagraph:
-      "Advance to the next line with a foot pedal or a swipe down in the lyrics area. LyriCue has its own voice, separate from VoiceOver, so it sounds and works the same whether VoiceOver is on or off.",
     gettingStartedParagraph:
-      'Getting started: the fastest way in is to try one of the built-in demo songs first, just to get a feel for it. Or if there\'s a song you already know by heart, use your phone\'s dictation to speak it straight into the New Song screen, saying "new line" between lines so each one lands on its own line.',
+      'Getting started: the fastest way in is to try one of the built-in demo songs first, just to get a feel for it. Or if there\'s a song you already know by heart, use your phone\'s dictation to speak it straight into the New Song screen, saying "new line" between lines so each one lands on its own line. Then double-tap the "Load Song" button to put the song on the lyrics display screen.',
+    lyricsScreenParagraph:
+      'Touch the center of the screen and VoiceOver will say "Lyrics." Advance to the next or previous line with a one-finger swipe up or down, or a foot pedal.',
+    voiceParagraph:
+      "LyriCue has its own voice, separate from VoiceOver, so it sounds and works the same whether VoiceOver is on or off.",
     feedbackParagraph: (email: string) => `Something not working, or have an idea for a feature? Email ${email}.`,
     versionText: (version: string) => `Version ${version}`,
     getStartedButtonLabel: 'Get Started',

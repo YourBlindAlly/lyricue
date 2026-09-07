@@ -49,9 +49,11 @@ export function AboutScreen({ navigation }: Props) {
 
         <Text style={styles.paragraph}>{strings.about.introParagraph}</Text>
 
-        <Text style={styles.paragraph}>{strings.about.pedalParagraph}</Text>
-
         <Text style={styles.paragraph}>{strings.about.gettingStartedParagraph}</Text>
+
+        <Text style={styles.paragraph}>{strings.about.lyricsScreenParagraph}</Text>
+
+        <Text style={styles.paragraph}>{strings.about.voiceParagraph}</Text>
 
         <Text style={styles.paragraph}>{strings.about.feedbackParagraph(CONTACT_EMAIL)}</Text>
 
