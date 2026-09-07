@@ -78,7 +78,9 @@ export function FindSongScreen({ navigation }: Props) {
         <>
           <Text style={styles.experimentalNotice}>{strings.findSong.experimentalNoticeText}</Text>
 
-          <Text style={styles.label}>{strings.findSong.titleLabel}</Text>
+          <Text style={styles.label} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {strings.findSong.titleLabel}
+          </Text>
           <TextInput
             style={styles.input}
             value={title}
@@ -89,7 +91,9 @@ export function FindSongScreen({ navigation }: Props) {
             editable={!isSearching}
           />
 
-          <Text style={styles.label}>{strings.findSong.artistLabel}</Text>
+          <Text style={styles.label} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {strings.findSong.artistLabel}
+          </Text>
           <TextInput
             style={styles.input}
             value={artist}

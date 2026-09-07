@@ -78,7 +78,9 @@ export function InputScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
-      <Text style={styles.label}>{strings.inputScreen.titleLabel}</Text>
+      <Text style={styles.label} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {strings.inputScreen.titleLabel}
+      </Text>
       <TextInput
         style={styles.titleInput}
         value={title}
@@ -88,7 +90,9 @@ export function InputScreen({ navigation, route }: Props) {
         returnKeyType="next"
       />
 
-      <Text style={styles.label}>{strings.inputScreen.lyricsLabel}</Text>
+      <Text style={styles.label} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {strings.inputScreen.lyricsLabel}
+      </Text>
       <TextInput
         style={styles.bodyInput}
         value={rawText}
