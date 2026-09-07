@@ -50,6 +50,20 @@ export function decreaseLineLengthPreset(current: LineLengthPreset): LineLengthP
   return PRESET_ORDER[Math.max(index - 1, 0)];
 }
 
+/**
+ * Cycles off -> short -> medium -> long -> off, wrapping at the end — for a
+ * plain tap, the sighted/VoiceOver-off fallback for this control. Swipe
+ * (increase/decrease above) is the primary interaction and doesn't wrap
+ * (moving a value you can already move in either direction shouldn't jump to
+ * the opposite end), but a single forward-only tap needs somewhere to go
+ * after reaching the last option, same as every other tap-cycle button in
+ * this app.
+ */
+export function nextLineLengthPreset(current: LineLengthPreset): LineLengthPreset {
+  const index = PRESET_ORDER.indexOf(current);
+  return PRESET_ORDER[(index + 1) % PRESET_ORDER.length];
+}
+
 export const LINE_LENGTH_PRESET_LABEL: Record<LineLengthPreset, string> = {
   short: 'Short',
   medium: 'Medium',

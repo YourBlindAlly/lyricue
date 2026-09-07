@@ -5,8 +5,18 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 import {
   increaseLineLengthPreset,
   decreaseLineLengthPreset,
+  nextLineLengthPreset,
   LINE_LENGTH_PRESET_LABEL,
 } from './lineLengthPreference';
+
+describe('nextLineLengthPreset', () => {
+  it('cycles off -> short -> medium -> long -> off', () => {
+    expect(nextLineLengthPreset('off')).toBe('short');
+    expect(nextLineLengthPreset('short')).toBe('medium');
+    expect(nextLineLengthPreset('medium')).toBe('long');
+    expect(nextLineLengthPreset('long')).toBe('off');
+  });
+});
 
 describe('increaseLineLengthPreset', () => {
   it('moves one step toward longer lines', () => {

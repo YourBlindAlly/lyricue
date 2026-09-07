@@ -16,6 +16,7 @@ import {
   decreaseLineLengthPreset,
   increaseLineLengthPreset,
   loadLineLengthPreset,
+  nextLineLengthPreset,
   saveLineLengthPreset,
   wrapOptionsForPreset,
   type LineLengthPreset,
@@ -109,14 +110,27 @@ export function PromptScreen({ navigation }: Props) {
   }, [song, navigation]);
 
   // Swipe up/down while focused (VoiceOver's native "adjustable" gesture,
-  // same mechanism used for speed/volume in Voice Settings) — per Rusty's
-  // request 2026-09-07 to make Lines/Chords swipe-adjustable like those,
-  // rather than a tap-to-cycle button. Replaces the old dedicated Line
-  // Length settings screen entirely.
+  // same mechanism used for speed/volume in Voice Settings) is the primary
+  // way to change Lines/Chords/Line breaks, per Rusty's request 2026-09-07.
+  // Each control ALSO keeps a plain-tap fallback (handleCycleLineLength etc.,
+  // below) — swipe-only would leave sighted/VoiceOver-off users with no way
+  // to change these at all, since adjustable's swipe gesture only exists
+  // when VoiceOver is running. Replaces the old dedicated Line Length
+  // settings screen entirely.
   const handleAdjustLineLength = (direction: 'increment' | 'decrement') => {
     setLineLengthPreset((current) => {
       const base = current ?? DEFAULT_LINE_LENGTH_PRESET;
       const next = direction === 'increment' ? increaseLineLengthPreset(base) : decreaseLineLengthPreset(base);
+      void saveLineLengthPreset(next);
+      return next;
+    });
+  };
+
+  // Tap fallback for sighted/VoiceOver-off use — cycles with wraparound,
+  // unlike the swipe gesture above which clamps at either end.
+  const handleCycleLineLength = () => {
+    setLineLengthPreset((current) => {
+      const next = nextLineLengthPreset(current ?? DEFAULT_LINE_LENGTH_PRESET);
       void saveLineLengthPreset(next);
       return next;
     });
@@ -128,6 +142,14 @@ export function PromptScreen({ navigation }: Props) {
     void saveIncludeChords(next);
   };
 
+  const handleToggleChords = () => {
+    setIncludeChords((current) => {
+      const next = !current;
+      void saveIncludeChords(next);
+      return next;
+    });
+  };
+
   // "Lines change with chords" mode, added 2026-09-07 per Rusty's request —
   // forces every chord change to start a new line, aimed at someone learning
   // a song rather than performing one they already know. See
@@ -136,6 +158,14 @@ export function PromptScreen({ navigation }: Props) {
     const next = direction === 'increment';
     setBreakAtChords(next);
     void saveBreakAtChords(next);
+  };
+
+  const handleToggleLineBreaks = () => {
+    setBreakAtChords((current) => {
+      const next = !current;
+      void saveBreakAtChords(next);
+      return next;
+    });
   };
 
   // Re-wrapping is a system-wide preference (not per-song), applied here at
@@ -377,7 +407,8 @@ export function PromptScreen({ navigation }: Props) {
           >
             <Text style={styles.exitLink}>{strings.promptScreen.voiceLinkLabel}</Text>
           </Pressable>
-          <View
+          <Pressable
+            hitSlop={ROW_LINK_HIT_SLOP}
             accessible
             accessibilityRole="adjustable"
             accessibilityLabel={strings.promptScreen.linesText}
@@ -394,12 +425,14 @@ export function PromptScreen({ navigation }: Props) {
                 handleAdjustLineLength('decrement');
               }
             }}
+            onPress={handleCycleLineLength}
           >
             <Text style={styles.exitLink}>
               {strings.promptScreen.linesLabel(LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET])}
             </Text>
-          </View>
-          <View
+          </Pressable>
+          <Pressable
+            hitSlop={ROW_LINK_HIT_SLOP}
             accessible
             accessibilityRole="adjustable"
             accessibilityLabel={strings.promptScreen.chordsText}
@@ -418,12 +451,14 @@ export function PromptScreen({ navigation }: Props) {
                 handleAdjustChords('decrement');
               }
             }}
+            onPress={handleToggleChords}
           >
             <Text style={styles.exitLink}>
               {includeChords ? strings.promptScreen.chordsOnLabel : strings.promptScreen.chordsOffLabel}
             </Text>
-          </View>
-          <View
+          </Pressable>
+          <Pressable
+            hitSlop={ROW_LINK_HIT_SLOP}
             accessible
             accessibilityRole="adjustable"
             accessibilityLabel={strings.promptScreen.lineBreaksText}
@@ -442,11 +477,12 @@ export function PromptScreen({ navigation }: Props) {
                 handleAdjustLineBreaks('decrement');
               }
             }}
+            onPress={handleToggleLineBreaks}
           >
             <Text style={styles.exitLink}>
               {breakAtChords ? strings.promptScreen.lineBreaksAtChordsLabel : strings.promptScreen.lineBreaksAtWordsLabel}
             </Text>
-          </View>
+          </Pressable>
           <Pressable
             hitSlop={ROW_LINK_HIT_SLOP}
             accessibilityRole="button"
