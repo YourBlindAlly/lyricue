@@ -13,13 +13,15 @@ import { loadReduceVoiceOverChatter } from '../speech/voiceOverPreference';
 import {
   DEFAULT_LINE_LENGTH_PRESET,
   LINE_LENGTH_PRESET_LABEL,
+  decreaseLineLengthPreset,
+  increaseLineLengthPreset,
   loadLineLengthPreset,
-  nextLineLengthPreset,
   saveLineLengthPreset,
   wrapOptionsForPreset,
   type LineLengthPreset,
 } from '../parsing/lineLengthPreference';
 import { loadIncludeChords, saveIncludeChords } from '../parsing/chordsPreference';
+import { loadBreakAtChords, saveBreakAtChords } from '../parsing/chordLineBreaksPreference';
 import { buildSongAnnouncement } from '../speech/songAnnouncement';
 import { wrapChordedSongLines, type LineWrapResult } from '../parsing/wrapLines';
 import { playAdvanceFeedback, playEndOfSongFeedback, playSongChangeFeedback } from '../feedback/feedback';
@@ -75,11 +77,13 @@ export function PromptScreen({ navigation }: Props) {
   // change again moments later once the real saved preferences load.
   const [lineLengthPreset, setLineLengthPreset] = useState<LineLengthPreset | null>(null);
   const [includeChords, setIncludeChords] = useState<boolean | null>(null);
+  const [breakAtChords, setBreakAtChords] = useState<boolean | null>(null);
 
   useEffect(() => {
     loadReduceVoiceOverChatter().then(setReduceChatter);
     loadLineLengthPreset().then(setLineLengthPreset);
     loadIncludeChords().then(setIncludeChords);
+    loadBreakAtChords().then(setBreakAtChords);
   }, []);
 
   // React Navigation reuses this screen's instance on goBack() rather than
@@ -93,6 +97,7 @@ export function PromptScreen({ navigation }: Props) {
       loadReduceVoiceOverChatter().then(setReduceChatter);
       loadLineLengthPreset().then(setLineLengthPreset);
       loadIncludeChords().then(setIncludeChords);
+      loadBreakAtChords().then(setBreakAtChords);
     });
     return unsubscribe;
   }, [navigation, refreshVoicePreference]);
@@ -103,48 +108,54 @@ export function PromptScreen({ navigation }: Props) {
     }
   }, [song, navigation]);
 
-  // Moved here from the Line Length settings screen, per Rusty's request —
-  // this is something worth flipping quickly between songs (or mid-
-  // rehearsal), not something that needs a trip into a settings submenu
-  // every time.
-  const handleToggleIncludeChords = () => {
-    setIncludeChords((current) => {
-      const next = !current;
-      void saveIncludeChords(next);
-      return next;
-    });
-  };
-
-  // Same reasoning as the chords toggle above — cycling in place beats a
-  // trip into a separate settings screen for something worth adjusting
-  // quickly, mid-rehearsal or between songs (Rusty's request, 2026-08-30).
-  // Replaces the old dedicated Line Length settings screen entirely.
-  const handleCycleLineLength = () => {
+  // Swipe up/down while focused (VoiceOver's native "adjustable" gesture,
+  // same mechanism used for speed/volume in Voice Settings) — per Rusty's
+  // request 2026-09-07 to make Lines/Chords swipe-adjustable like those,
+  // rather than a tap-to-cycle button. Replaces the old dedicated Line
+  // Length settings screen entirely.
+  const handleAdjustLineLength = (direction: 'increment' | 'decrement') => {
     setLineLengthPreset((current) => {
-      const next = nextLineLengthPreset(current ?? DEFAULT_LINE_LENGTH_PRESET);
+      const base = current ?? DEFAULT_LINE_LENGTH_PRESET;
+      const next = direction === 'increment' ? increaseLineLengthPreset(base) : decreaseLineLengthPreset(base);
       void saveLineLengthPreset(next);
       return next;
     });
   };
 
+  const handleAdjustChords = (direction: 'increment' | 'decrement') => {
+    const next = direction === 'increment';
+    setIncludeChords(next);
+    void saveIncludeChords(next);
+  };
+
+  // "Lines change with chords" mode, added 2026-09-07 per Rusty's request —
+  // forces every chord change to start a new line, aimed at someone learning
+  // a song rather than performing one they already know. See
+  // wrapLines.ts's breakAtEveryChord for the actual splitting logic.
+  const handleAdjustLineBreaks = (direction: 'increment' | 'decrement') => {
+    const next = direction === 'increment';
+    setBreakAtChords(next);
+    void saveBreakAtChords(next);
+  };
+
   // Re-wrapping is a system-wide preference (not per-song), applied here at
   // playback time rather than baked into Song.lines, so changing it in
   // Settings immediately affects every song, including ones already in the
-  // library — not just newly imported ones. Chord position is always a
-  // preferred break point inside wrapChordedSongLines regardless of
+  // library — not just newly imported ones. Chord position is always at
+  // least a preferred break point inside wrapChordedSongLines regardless of
   // includeChords — that flag only controls whether the chord names survive
-  // into the rendered text.
+  // into the rendered text. breakAtChords escalates "preferred" to "forced".
   const spokenLines = useMemo<LineWrapResult>(() => {
-    if (!song || lineLengthPreset === null || includeChords === null) {
+    if (!song || lineLengthPreset === null || includeChords === null || breakAtChords === null) {
       return { lines: [], sections: [] };
     }
-    const options = wrapOptionsForPreset(lineLengthPreset);
+    const options = { ...wrapOptionsForPreset(lineLengthPreset), breakAtEveryChord: breakAtChords };
     return wrapChordedSongLines(
       { chordedLines: song.chordedLines, sections: song.sections },
       options,
       includeChords
     );
-  }, [song, lineLengthPreset, includeChords]);
+  }, [song, lineLengthPreset, includeChords, breakAtChords]);
 
   // The title/key announcement is a synthetic "line 0" ahead of the real
   // lyrics — Rusty relies on hearing the key every time, even for songs he
@@ -366,26 +377,76 @@ export function PromptScreen({ navigation }: Props) {
           >
             <Text style={styles.exitLink}>{strings.promptScreen.voiceLinkLabel}</Text>
           </Pressable>
-          <Pressable
-            hitSlop={ROW_LINK_HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel={strings.promptScreen.linesLabel(LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET])}
-            onPress={handleCycleLineLength}
+          <View
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel={strings.promptScreen.linesText}
+            accessibilityValue={{ text: LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET] }}
+            accessibilityHint={strings.promptScreen.linesHint}
+            accessibilityActions={[
+              { name: 'increment', label: strings.promptScreen.longerActionLabel },
+              { name: 'decrement', label: strings.promptScreen.shorterActionLabel },
+            ]}
+            onAccessibilityAction={(event) => {
+              if (event.nativeEvent.actionName === 'increment') {
+                handleAdjustLineLength('increment');
+              } else if (event.nativeEvent.actionName === 'decrement') {
+                handleAdjustLineLength('decrement');
+              }
+            }}
           >
             <Text style={styles.exitLink}>
               {strings.promptScreen.linesLabel(LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET])}
             </Text>
-          </Pressable>
-          <Pressable
-            hitSlop={ROW_LINK_HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel={includeChords ? strings.promptScreen.chordsOnLabel : strings.promptScreen.chordsOffLabel}
-            onPress={handleToggleIncludeChords}
+          </View>
+          <View
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel={strings.promptScreen.chordsText}
+            accessibilityValue={{
+              text: includeChords ? strings.promptScreen.chordsOnActionLabel : strings.promptScreen.chordsOffActionLabel,
+            }}
+            accessibilityHint={strings.promptScreen.chordsHint}
+            accessibilityActions={[
+              { name: 'increment', label: strings.promptScreen.chordsOnActionLabel },
+              { name: 'decrement', label: strings.promptScreen.chordsOffActionLabel },
+            ]}
+            onAccessibilityAction={(event) => {
+              if (event.nativeEvent.actionName === 'increment') {
+                handleAdjustChords('increment');
+              } else if (event.nativeEvent.actionName === 'decrement') {
+                handleAdjustChords('decrement');
+              }
+            }}
           >
             <Text style={styles.exitLink}>
               {includeChords ? strings.promptScreen.chordsOnLabel : strings.promptScreen.chordsOffLabel}
             </Text>
-          </Pressable>
+          </View>
+          <View
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel={strings.promptScreen.lineBreaksText}
+            accessibilityValue={{
+              text: breakAtChords ? strings.promptScreen.lineBreaksChordsValue : strings.promptScreen.lineBreaksWordsValue,
+            }}
+            accessibilityHint={strings.promptScreen.lineBreaksHint}
+            accessibilityActions={[
+              { name: 'increment', label: strings.promptScreen.lineBreaksChordsValue },
+              { name: 'decrement', label: strings.promptScreen.lineBreaksWordsValue },
+            ]}
+            onAccessibilityAction={(event) => {
+              if (event.nativeEvent.actionName === 'increment') {
+                handleAdjustLineBreaks('increment');
+              } else if (event.nativeEvent.actionName === 'decrement') {
+                handleAdjustLineBreaks('decrement');
+              }
+            }}
+          >
+            <Text style={styles.exitLink}>
+              {breakAtChords ? strings.promptScreen.lineBreaksAtChordsLabel : strings.promptScreen.lineBreaksAtWordsLabel}
+            </Text>
+          </View>
           <Pressable
             hitSlop={ROW_LINK_HIT_SLOP}
             accessibilityRole="button"

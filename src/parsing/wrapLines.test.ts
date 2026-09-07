@@ -98,6 +98,47 @@ describe('chunkChordedLine with chord boundaries', () => {
   });
 });
 
+describe('chunkChordedLine with breakAtEveryChord', () => {
+  it('without breakAtEveryChord, does not split at a chord unless the length cap requires it', () => {
+    const words = tokenizeChordedLine('[G]In the sunshine [D]in the moonlight');
+    const chunks = chunkChordedLine(words, { maxWords: 99, maxSyllables: 99 });
+    expect(chunks).toHaveLength(1);
+  });
+
+  it('forces a new chunk at every chord change, even well under the length cap', () => {
+    const words = tokenizeChordedLine('[G]In the sunshine [D]in the moonlight');
+    const chunks = chunkChordedLine(words, { maxWords: 99, maxSyllables: 99, breakAtEveryChord: true });
+    expect(chunks.map((c) => c.map((w) => w.text).join(' '))).toEqual([
+      'In the sunshine',
+      'in the moonlight',
+    ]);
+  });
+
+  it('still falls back to the length cap on a long chord-sparse stretch', () => {
+    const words = tokenizeChordedLine('[G]one two three four five six seven eight nine ten [D]eleven');
+    const chunks = chunkChordedLine(words, { maxWords: 4, maxSyllables: 99, breakAtEveryChord: true });
+    // No chord between "one" and "eleven", so ordinary word-cap splitting
+    // still applies within that stretch; "eleven" then still starts its own
+    // chunk since it carries a chord.
+    expect(chunks.map((c) => c.map((w) => w.text).join(' '))).toEqual([
+      'one two three four',
+      'five six seven eight',
+      'nine ten',
+      'eleven',
+    ]);
+  });
+
+  it('a chordless line is unaffected by breakAtEveryChord', () => {
+    const words = tokenizePlainLine('one two three four five six seven eight nine');
+    const chunks = chunkChordedLine(words, { maxWords: 4, maxSyllables: 99, breakAtEveryChord: true });
+    expect(chunks.map((c) => c.map((w) => w.text).join(' '))).toEqual([
+      'one two three four',
+      'five six seven eight',
+      'nine',
+    ]);
+  });
+});
+
 describe('renderChunk', () => {
   it('omits chords when includeChords is false', () => {
     const words = tokenizeChordedLine('[G]In the [D]sunshine');

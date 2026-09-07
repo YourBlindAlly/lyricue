@@ -11,6 +11,15 @@ export type LineWrapResult = {
 export type LineWrapOptions = {
   maxWords: number;
   maxSyllables: number;
+  /**
+   * When true, every chord change forces a new chunk to start, regardless of
+   * maxWords/maxSyllables — for a mode aimed at people learning a song, where
+   * seeing/hearing exactly which words a chord change lands on matters more
+   * than keeping lines a natural phrase length. maxWords/maxSyllables still
+   * apply as a fallback cap between chords, so a long chord-sparse stretch
+   * still gets split reasonably.
+   */
+  breakAtEveryChord?: boolean;
 };
 
 const BREAK_BEFORE_WORD_RE = /^(and|but|or|so|yet|nor)$/i;
@@ -43,7 +52,7 @@ function estimateSyllables(word: string): number {
  * never splits a single word.
  */
 export function chunkChordedLine(words: ChordedWord[], options: LineWrapOptions): ChordedWord[][] {
-  const { maxWords, maxSyllables } = options;
+  const { maxWords, maxSyllables, breakAtEveryChord } = options;
   if (words.length === 0) {
     return [];
   }
@@ -62,7 +71,10 @@ export function chunkChordedLine(words: ChordedWord[], options: LineWrapOptions)
 
   for (const word of words) {
     const isPreferredBreakBefore = word.chord !== null || BREAK_BEFORE_WORD_RE.test(word.text);
-    if (chunkWords.length > 0 && isPreferredBreakBefore) {
+
+    if (breakAtEveryChord && word.chord !== null && chunkWords.length > 0) {
+      flush(chunkWords.length);
+    } else if (chunkWords.length > 0 && isPreferredBreakBefore) {
       lastBreakIndex = chunkWords.length;
     }
 

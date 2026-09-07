@@ -14,11 +14,16 @@ export const LINE_LENGTH_OPTIONS: Record<Exclude<LineLengthPreset, 'off'>, LineW
 export const DEFAULT_LINE_LENGTH_PRESET: LineLengthPreset = 'medium';
 
 const LINE_LENGTH_KEY = 'cueme.lineLengthPreset';
-const VALID_PRESETS: LineLengthPreset[] = ['short', 'medium', 'long', 'off'];
+
+// Ordered from "no splitting at all" to "shortest chunks" — the axis the
+// swipe-adjustable header control moves along. Off sits at one end rather
+// than wrapping in after Long, since it isn't "more splitting than Long",
+// it's "no splitting" — a real endpoint, not a fourth step on the scale.
+const PRESET_ORDER: LineLengthPreset[] = ['off', 'short', 'medium', 'long'];
 
 export async function loadLineLengthPreset(): Promise<LineLengthPreset> {
   const stored = await AsyncStorage.getItem(LINE_LENGTH_KEY);
-  if (stored && (VALID_PRESETS as string[]).includes(stored)) {
+  if (stored && (PRESET_ORDER as string[]).includes(stored)) {
     return stored as LineLengthPreset;
   }
   return DEFAULT_LINE_LENGTH_PRESET;
@@ -28,10 +33,21 @@ export async function saveLineLengthPreset(preset: LineLengthPreset): Promise<vo
   await AsyncStorage.setItem(LINE_LENGTH_KEY, preset);
 }
 
-/** Cycles short -> medium -> long -> off -> short, for a single tappable header button (no separate settings screen). */
-export function nextLineLengthPreset(current: LineLengthPreset): LineLengthPreset {
-  const index = VALID_PRESETS.indexOf(current);
-  return VALID_PRESETS[(index + 1) % VALID_PRESETS.length];
+/**
+ * One step toward longer/shorter lines, clamped at either end rather than
+ * wrapping — for the swipe-up/down "adjustable" gesture, same reasoning as
+ * voiceRatePreference's increase/decrease (Rusty's 2026-09-07 request to
+ * make this swipe-adjustable instead of a tap-to-cycle button, matching the
+ * pattern already built for Speed/Volume).
+ */
+export function increaseLineLengthPreset(current: LineLengthPreset): LineLengthPreset {
+  const index = PRESET_ORDER.indexOf(current);
+  return PRESET_ORDER[Math.min(index + 1, PRESET_ORDER.length - 1)];
+}
+
+export function decreaseLineLengthPreset(current: LineLengthPreset): LineLengthPreset {
+  const index = PRESET_ORDER.indexOf(current);
+  return PRESET_ORDER[Math.max(index - 1, 0)];
 }
 
 export const LINE_LENGTH_PRESET_LABEL: Record<LineLengthPreset, string> = {

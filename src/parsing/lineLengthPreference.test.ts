@@ -2,14 +2,33 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
-import { nextLineLengthPreset, LINE_LENGTH_PRESET_LABEL } from './lineLengthPreference';
+import {
+  increaseLineLengthPreset,
+  decreaseLineLengthPreset,
+  LINE_LENGTH_PRESET_LABEL,
+} from './lineLengthPreference';
 
-describe('nextLineLengthPreset', () => {
-  it('cycles short -> medium -> long -> off -> short', () => {
-    expect(nextLineLengthPreset('short')).toBe('medium');
-    expect(nextLineLengthPreset('medium')).toBe('long');
-    expect(nextLineLengthPreset('long')).toBe('off');
-    expect(nextLineLengthPreset('off')).toBe('short');
+describe('increaseLineLengthPreset', () => {
+  it('moves one step toward longer lines', () => {
+    expect(increaseLineLengthPreset('off')).toBe('short');
+    expect(increaseLineLengthPreset('short')).toBe('medium');
+    expect(increaseLineLengthPreset('medium')).toBe('long');
+  });
+
+  it('clamps at Long instead of wrapping', () => {
+    expect(increaseLineLengthPreset('long')).toBe('long');
+  });
+});
+
+describe('decreaseLineLengthPreset', () => {
+  it('moves one step toward shorter lines', () => {
+    expect(decreaseLineLengthPreset('long')).toBe('medium');
+    expect(decreaseLineLengthPreset('medium')).toBe('short');
+    expect(decreaseLineLengthPreset('short')).toBe('off');
+  });
+
+  it('clamps at Off instead of wrapping', () => {
+    expect(decreaseLineLengthPreset('off')).toBe('off');
   });
 });
 
