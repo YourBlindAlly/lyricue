@@ -12,7 +12,7 @@ export type AiSearchResult = {
 };
 
 /**
- * Calls the CueMe song-search backend (see backend/ in this repo). Throws
+ * Calls the LyriCue song-search backend (see backend/ in this repo). Throws
  * with a message suitable to show directly to Rusty in an Alert — the
  * backend already returns human-readable `error` strings for the cases
  * that are expected to happen in normal use (not found, misconfigured).

@@ -420,7 +420,7 @@ export function PromptScreen({ navigation }: Props) {
           // accessible group's label to its children's text content, which
           // means VoiceOver was re-announcing the new line itself (in its own
           // voice) every time it changed while focused here, echoing right
-          // on top of CueMe's own TTS reading the same line (Rusty's report,
+          // on top of LyriCue's own TTS reading the same line (Rusty's report,
           // 2026-08-30/31). A label that never changes gives VoiceOver
           // nothing new to say on its own — the actual lyric content is
           // still spoken, just only ever through speakNow, never VoiceOver's

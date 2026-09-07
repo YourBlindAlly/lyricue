@@ -26,7 +26,7 @@ const CONTENT_DROP_PAIRS: ContentDropPair[] = [
   { start: ['start_of_textblock'], end: ['end_of_textblock'] },
 ];
 
-// Maps onto CueMe's existing Song.sections concept — only the start matters,
+// Maps onto LyriCue's existing Song.sections concept — only the start matters,
 // since a section's end is just "wherever the next marker (or the song) ends".
 const SECTION_STARTS: { names: string[]; label: string }[] = [
   { names: ['start_of_chorus', 'soc'], label: 'Chorus' },
@@ -50,7 +50,7 @@ function baseDirectiveName(rawName: string): string {
 }
 
 /**
- * Parses a ChordPro file into the same shape CueMe's plain-text parser
+ * Parses a ChordPro file into the same shape LyriCue's plain-text parser
  * produces (spoken lines + section markers), plus title/key pulled from
  * directives. Chords sitting inline in [brackets] are stripped, not spoken —
  * a line that's only bracketed chords self-resolves to a skipped blank line

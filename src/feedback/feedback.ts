@@ -10,7 +10,7 @@ let endPlayer: ReturnType<typeof createAudioPlayer> | null = null;
 let songChangePlayer: ReturnType<typeof createAudioPlayer> | null = null;
 
 /**
- * Configures the audio session so CueMe's TTS and feedback sounds always take
+ * Configures the audio session so LyriCue's TTS and feedback sounds always take
  * priority — never ducked or muted for other audio, per spec.
  */
 export async function configureAudioSession(): Promise<void> {
