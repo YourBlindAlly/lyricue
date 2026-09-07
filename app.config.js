@@ -33,6 +33,14 @@ module.exports = {
       infoPlist: {
         UIBackgroundModes: ['audio'],
         GCSupportsControllerUserInteraction: true,
+        // LyriCue only makes plain HTTPS calls (Dropbox API, the search
+        // backend) through iOS's own networking stack - it never
+        // implements or embeds an encryption algorithm itself, so it's
+        // exempt from export compliance. Setting this here means App
+        // Store Connect reads it straight from the build and never asks
+        // the encryption question again for any future upload, instead
+        // of answering it by hand every time (2026-09-07).
+        ITSAppUsesNonExemptEncryption: false,
       },
     },
     android: {
