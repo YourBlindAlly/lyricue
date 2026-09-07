@@ -57,10 +57,10 @@ export const en = {
     addHeading: 'Add a Song',
     cancelLabel: 'Cancel',
     titleLabel: 'Title (optional)',
-    lyricsLabel: 'Lyrics — one line per prompt',
+    lyricsLabel: 'Lyrics',
     titlePlaceholder: 'Song title',
     lyricsPlaceholder:
-      'Paste your lyrics here.\nOne line at a time.\n\nMark sections with -- or [Chorus] if you like.',
+      'Paste or speak your lyrics, line by line, separating lines with Enter or Return. Mark song sections with dash-dash chorus, or square brackets chorus, if you like.',
     saveChangesLabel: 'Save Changes',
     loadSongLabel: 'Load Song',
   },
