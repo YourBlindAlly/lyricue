@@ -3,6 +3,7 @@ import * as Speech from 'expo-speech';
 import { loadVoicePreference } from './voicePreference';
 import { DEFAULT_VOICE_RATE, loadVoiceRate, type VoiceRate } from './voiceRatePreference';
 import { DEFAULT_VOICE_VOLUME, loadVoiceVolume, type VoiceVolume } from './voiceVolumePreference';
+import type { SpeechSegment } from '../parsing/wrapLines';
 
 export function useSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -64,17 +65,36 @@ export function useSpeech() {
    * found via real on-device testing where lines were "fading away" before
    * finishing.
    */
-  const speakNow = useCallback((text: string) => {
+  /**
+   * Speaks a sequence of segments back to back, each at its own pitch —
+   * the underlying mechanism for both speakNow (a single plain-pitch
+   * segment) and the higher-pitch-for-chords feature (a chord-name segment
+   * at a raised pitch, then a normal-pitch segment for the words after it).
+   * expo-speech applies one pitch per speak() call, so a mid-utterance
+   * pitch change means chaining separate speak() calls via onDone rather
+   * than one call for the whole line.
+   *
+   * Shares speakNow's stop-then-await, request-id-guarded start so a newer
+   * call (of either function) still cleanly supersedes an older one even
+   * mid-sequence — each step re-checks the request id before speaking,
+   * exactly like the single-segment case did.
+   */
+  const speakSegments = useCallback((segments: SpeechSegment[]) => {
     const requestId = ++requestIdRef.current;
-    (async () => {
-      await Speech.stop();
-      if (!mounted.current) return;
-      if (requestIdRef.current !== requestId) return; // superseded by a newer speakNow call — don't speak stale content
-      setIsSpeaking(true);
-      Speech.speak(text, {
+
+    const speakFrom = (index: number) => {
+      if (!mounted.current || requestIdRef.current !== requestId) return;
+      if (index >= segments.length) {
+        setIsSpeaking(false);
+        return;
+      }
+      const segment = segments[index];
+      const isLast = index === segments.length - 1;
+      Speech.speak(segment.text, {
         voice: voiceIdRef.current ?? undefined,
         rate: rateRef.current,
         volume: volumeRef.current,
+        pitch: segment.pitch ?? 1.0,
         // Gives AVSpeechSynthesizer its own audio session instead of sharing
         // the app-wide one that the tick/end-of-song sound effects (expo-audio)
         // also touch — fixed lines "fading" partway through, which turned out
@@ -82,7 +102,11 @@ export function useSpeech() {
         // engines, not the stop()/speak() ordering above.
         useApplicationAudioSession: false,
         onDone: () => {
-          if (mounted.current) setIsSpeaking(false);
+          if (isLast) {
+            if (mounted.current) setIsSpeaking(false);
+          } else {
+            speakFrom(index + 1);
+          }
         },
         onStopped: () => {
           if (mounted.current) setIsSpeaking(false);
@@ -91,8 +115,23 @@ export function useSpeech() {
           if (mounted.current) setIsSpeaking(false);
         },
       });
+    };
+
+    (async () => {
+      await Speech.stop();
+      if (!mounted.current) return;
+      if (requestIdRef.current !== requestId) return; // superseded by a newer call — don't speak stale content
+      setIsSpeaking(true);
+      speakFrom(0);
     })();
   }, []);
+
+  const speakNow = useCallback(
+    (text: string) => {
+      speakSegments([{ text }]);
+    },
+    [speakSegments]
+  );
 
   const stopImmediate = useCallback(() => {
     requestIdRef.current++; // invalidates any speakNow() still awaiting Speech.stop() from before this call
@@ -100,5 +139,5 @@ export function useSpeech() {
     setIsSpeaking(false);
   }, []);
 
-  return { isSpeaking, speakNow, stopImmediate, refreshVoicePreference };
+  return { isSpeaking, speakNow, speakSegments, stopImmediate, refreshVoicePreference };
 }

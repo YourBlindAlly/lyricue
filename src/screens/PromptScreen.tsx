@@ -23,9 +23,11 @@ import {
 } from '../parsing/lineLengthPreference';
 import { loadIncludeChords, saveIncludeChords } from '../parsing/chordsPreference';
 import { loadBreakAtChords, saveBreakAtChords } from '../parsing/chordLineBreaksPreference';
+import { loadHigherPitchForChords, saveHigherPitchForChords } from '../speech/chordPitchPreference';
 import { buildSongAnnouncement } from '../speech/songAnnouncement';
-import { wrapChordedSongLines, type LineWrapResult } from '../parsing/wrapLines';
+import { wrapChordedSongLines, type LineWrapResult, type SpeechSegment } from '../parsing/wrapLines';
 import { playAdvanceFeedback, playEndOfSongFeedback, playSongChangeFeedback } from '../feedback/feedback';
+import { RepeatController } from '../prompt/repeatController';
 import { usePedalInput } from '../pedal/usePedalInput';
 import { ROW_LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
@@ -52,7 +54,7 @@ export function PromptScreen({ navigation }: Props) {
   // screen unmounts before the (async, web-only) Wake Lock activation settles.
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
   const { activeSong: song, activeSetlist, advanceSetlist, reduceHints } = useAppState();
-  const { speakNow, stopImmediate, refreshVoicePreference } = useSpeech();
+  const { speakNow, speakSegments, stopImmediate, refreshVoicePreference } = useSpeech();
   // React Navigation is supposed to fully unmount a screen once it's popped
   // off the stack, but Rusty found a real, reproducible case where that
   // doesn't happen cleanly: loading N different songs in a row caused each
@@ -79,12 +81,14 @@ export function PromptScreen({ navigation }: Props) {
   const [lineLengthPreset, setLineLengthPreset] = useState<LineLengthPreset | null>(null);
   const [includeChords, setIncludeChords] = useState<boolean | null>(null);
   const [breakAtChords, setBreakAtChords] = useState<boolean | null>(null);
+  const [higherPitchForChords, setHigherPitchForChords] = useState<boolean | null>(null);
 
   useEffect(() => {
     loadReduceVoiceOverChatter().then(setReduceChatter);
     loadLineLengthPreset().then(setLineLengthPreset);
     loadIncludeChords().then(setIncludeChords);
     loadBreakAtChords().then(setBreakAtChords);
+    loadHigherPitchForChords().then(setHigherPitchForChords);
   }, []);
 
   // React Navigation reuses this screen's instance on goBack() rather than
@@ -99,6 +103,7 @@ export function PromptScreen({ navigation }: Props) {
       loadLineLengthPreset().then(setLineLengthPreset);
       loadIncludeChords().then(setIncludeChords);
       loadBreakAtChords().then(setBreakAtChords);
+      loadHigherPitchForChords().then(setHigherPitchForChords);
     });
     return unsubscribe;
   }, [navigation, refreshVoicePreference]);
@@ -175,6 +180,27 @@ export function PromptScreen({ navigation }: Props) {
   const lineBreaksInteractive = includeChords === true;
   const effectiveBreakAtChords = lineBreaksInteractive ? (breakAtChords ?? false) : false;
 
+  // Speaking a chord name at a higher pitch (2026-09-09, per a tester
+  // suggestion) is meaningless with chords off, same reasoning as Line
+  // Breaks above — forced inert rather than guessing what a chords-off user
+  // would want.
+  const chordPitchInteractive = includeChords === true;
+  const effectiveHigherPitchForChords = chordPitchInteractive ? (higherPitchForChords ?? false) : false;
+
+  const handleAdjustChordPitch = (direction: 'increment' | 'decrement') => {
+    const next = direction === 'increment';
+    setHigherPitchForChords(next);
+    void saveHigherPitchForChords(next);
+  };
+
+  const handleToggleChordPitch = () => {
+    setHigherPitchForChords((current) => {
+      const next = !current;
+      void saveHigherPitchForChords(next);
+      return next;
+    });
+  };
+
   // Re-wrapping is a system-wide preference (not per-song), applied here at
   // playback time rather than baked into Song.lines, so changing it in
   // Settings immediately affects every song, including ones already in the
@@ -184,15 +210,16 @@ export function PromptScreen({ navigation }: Props) {
   // into the rendered text. breakAtChords escalates "preferred" to "forced".
   const spokenLines = useMemo<LineWrapResult>(() => {
     if (!song || lineLengthPreset === null || includeChords === null || breakAtChords === null) {
-      return { lines: [], sections: [] };
+      return { lines: [], segments: [], sections: [] };
     }
     const options = { ...wrapOptionsForPreset(lineLengthPreset), breakAtEveryChord: effectiveBreakAtChords };
     return wrapChordedSongLines(
       { chordedLines: song.chordedLines, sections: song.sections },
       options,
-      includeChords
+      includeChords,
+      effectiveHigherPitchForChords
     );
-  }, [song, lineLengthPreset, includeChords, effectiveBreakAtChords]);
+  }, [song, lineLengthPreset, includeChords, effectiveBreakAtChords, effectiveHigherPitchForChords]);
 
   // The title/key announcement is a synthetic "line 0" ahead of the real
   // lyrics — Rusty relies on hearing the key every time, even for songs he
@@ -205,6 +232,18 @@ export function PromptScreen({ navigation }: Props) {
     return [buildSongAnnouncement(song.title, song.key), ...spokenLines.lines];
   }, [song, spokenLines]);
 
+  // Parallel to displayLines, but as speech segments (plain text + optional
+  // pitch) rather than flat strings — what actually gets spoken. The title
+  // announcement has no chord data, so it's always a single plain segment;
+  // real lyric lines carry whatever segments wrapChordedSongLines produced,
+  // which is a single plain segment too unless higher-pitch-for-chords is on.
+  const displaySegments = useMemo<SpeechSegment[][]>(() => {
+    if (!song || spokenLines.lines.length === 0) {
+      return [];
+    }
+    return [[{ text: buildSongAnnouncement(song.title, song.key) }], ...spokenLines.segments];
+  }, [song, spokenLines]);
+
   // Set when a double-press just jumped to a different setlist song, so the
   // effect below knows this particular displayLines change should announce
   // itself immediately rather than wait for another press. Using a ref (not
@@ -212,6 +251,14 @@ export function PromptScreen({ navigation }: Props) {
   // between that callback and this effect — whichever fires second would
   // otherwise clobber the other's idea of where currentIndex should land.
   const setlistJumpPendingRef = useRef(false);
+
+  // A back or forward press's meaning depends on recent press history (see
+  // repeatController.ts for the full rules), so it needs one instance that
+  // persists across presses, not fresh state each render. Reset alongside
+  // currentIndex below whenever displayLines changes — repeat context from
+  // a previous song or a previous line-length setting is meaningless once
+  // the line set underneath it has changed.
+  const repeatControllerRef = useRef(new RepeatController());
 
   // Reset to "nothing spoken yet" whenever a song loads or the wrapped lines
   // change (e.g. the line-length preference changed and we came back to this
@@ -224,23 +271,39 @@ export function PromptScreen({ navigation }: Props) {
   // VoiceOver announcement to race and announcing the new song immediately
   // (rather than requiring a third press) is exactly what was asked for.
   useEffect(() => {
+    repeatControllerRef.current = new RepeatController();
     if (setlistJumpPendingRef.current) {
       setlistJumpPendingRef.current = false;
       setCurrentIndex(0);
-      if (displayLines.length > 0) {
-        speakNow(displayLines[0]);
+      if (displaySegments.length > 0) {
+        speakSegments(displaySegments[0]);
       }
     } else {
       setCurrentIndex(-1);
     }
-  }, [displayLines, speakNow]);
+  }, [displaySegments, speakSegments]);
 
   useEffect(() => {
     return () => stopImmediate();
   }, [stopImmediate]);
 
+  // Repeat feature, 2026-09-09 — see repeatController.ts for the full design
+  // and reasoning. Short version: a fresh "back" press repeats the current
+  // line rather than moving; a quick second "back" walks back a real line
+  // instead (and every quick one after that keeps walking back); a quick
+  // "next" — whether alternating with a back or repeating another quick
+  // next — always repeats too, since moving forward for real only ever
+  // happens after a genuine pause. In practice that pause costs nothing:
+  // singing the repeated line before reaching for next already takes
+  // longer than the window.
   const goNext = useCallback(() => {
     if (displayLines.length === 0) return;
+    const resolution = repeatControllerRef.current.resolveNext();
+    if (resolution === 'repeat' && currentIndex >= 0) {
+      playAdvanceFeedback();
+      speakSegments(displaySegments[currentIndex]);
+      return;
+    }
     if (currentIndex >= displayLines.length - 1) {
       stopImmediate();
       playEndOfSongFeedback();
@@ -249,20 +312,26 @@ export function PromptScreen({ navigation }: Props) {
     const nextIndex = currentIndex + 1;
     setCurrentIndex(nextIndex);
     playAdvanceFeedback();
-    speakNow(displayLines[nextIndex]);
-  }, [currentIndex, displayLines, speakNow, stopImmediate]);
+    speakSegments(displaySegments[nextIndex]);
+  }, [currentIndex, displayLines, displaySegments, speakSegments, stopImmediate]);
 
   const goPrevious = useCallback(() => {
     // currentIndex === -1 means nothing has been spoken yet — nothing to go
-    // back to.
+    // back to or repeat.
     if (displayLines.length === 0 || currentIndex < 0) {
+      return;
+    }
+    const resolution = repeatControllerRef.current.resolveBack();
+    if (resolution === 'repeat') {
+      playAdvanceFeedback();
+      speakSegments(displaySegments[currentIndex]);
       return;
     }
     const prevIndex = Math.max(0, currentIndex - 1);
     setCurrentIndex(prevIndex);
     playAdvanceFeedback();
-    speakNow(displayLines[prevIndex]);
-  }, [currentIndex, displayLines, speakNow]);
+    speakSegments(displaySegments[prevIndex]);
+  }, [currentIndex, displayLines, displaySegments, speakSegments]);
 
   // Shared by the pedal's double-press, the on-screen song-corner buttons,
   // and the adjustable "song N of M" text below — every trigger for a
@@ -320,10 +389,10 @@ export function PromptScreen({ navigation }: Props) {
   });
 
   const resumeCurrentLine = useCallback(() => {
-    if (isFocusedRef.current && currentIndex >= 0 && displayLines.length > 0) {
-      speakNow(displayLines[currentIndex]);
+    if (isFocusedRef.current && currentIndex >= 0 && displaySegments.length > 0) {
+      speakSegments(displaySegments[currentIndex]);
     }
-  }, [currentIndex, displayLines, speakNow]);
+  }, [currentIndex, displaySegments, speakSegments]);
   useAudioInterruptionResume(resumeCurrentLine);
 
   const flingLeft = Gesture.Fling()
@@ -496,6 +565,42 @@ export function PromptScreen({ navigation }: Props) {
           >
             <Text style={[styles.exitLink, !lineBreaksInteractive && styles.exitLinkDisabled]}>
               {effectiveBreakAtChords ? strings.promptScreen.lineBreaksAtChordsLabel : strings.promptScreen.lineBreaksAtWordsLabel}
+            </Text>
+          </Pressable>
+          <Pressable
+            hitSlop={ROW_LINK_HIT_SLOP}
+            accessible
+            accessibilityRole={chordPitchInteractive ? 'adjustable' : undefined}
+            accessibilityLabel={strings.promptScreen.chordPitchText}
+            accessibilityValue={{
+              text: effectiveHigherPitchForChords
+                ? strings.promptScreen.chordPitchOnActionLabel
+                : strings.promptScreen.chordPitchOffActionLabel,
+            }}
+            accessibilityHint={chordPitchInteractive ? hintOrNone(strings.promptScreen.chordPitchHint, reduceHints) : undefined}
+            accessibilityActions={
+              chordPitchInteractive
+                ? [
+                    { name: 'increment', label: strings.promptScreen.chordPitchOnActionLabel },
+                    { name: 'decrement', label: strings.promptScreen.chordPitchOffActionLabel },
+                  ]
+                : undefined
+            }
+            onAccessibilityAction={
+              chordPitchInteractive
+                ? (event) => {
+                    if (event.nativeEvent.actionName === 'increment') {
+                      handleAdjustChordPitch('increment');
+                    } else if (event.nativeEvent.actionName === 'decrement') {
+                      handleAdjustChordPitch('decrement');
+                    }
+                  }
+                : undefined
+            }
+            onPress={chordPitchInteractive ? handleToggleChordPitch : undefined}
+          >
+            <Text style={[styles.exitLink, !chordPitchInteractive && styles.exitLinkDisabled]}>
+              {effectiveHigherPitchForChords ? strings.promptScreen.chordPitchOnLabel : strings.promptScreen.chordPitchOffLabel}
             </Text>
           </Pressable>
           <Pressable

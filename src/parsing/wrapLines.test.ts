@@ -1,4 +1,11 @@
-import { chunkChordedLine, renderChunk, wrapLine, wrapChordedSongLines } from './wrapLines';
+import {
+  chunkChordedLine,
+  renderChunk,
+  renderChunkSegments,
+  wrapLine,
+  wrapChordedSongLines,
+  CHORD_PITCH,
+} from './wrapLines';
 import { tokenizeChordedLine, tokenizePlainLine } from './chordedWord';
 
 const MEDIUM = { maxWords: 6, maxSyllables: 8 };
@@ -137,6 +144,44 @@ describe('chunkChordedLine with breakAtEveryChord', () => {
       'nine',
     ]);
   });
+
+  it('merges a lone leading word (before the first chord) into the next chunk', () => {
+    // "'Twas grace that taught my heart to fear" -- 'Twas has no chord, so it
+    // would otherwise be flushed alone the instant "grace" forces a break.
+    const words = tokenizeChordedLine("'Twas [G]grace that taught my [G7]heart to [C]fear");
+    const chunks = chunkChordedLine(words, { maxWords: 99, maxSyllables: 99, breakAtEveryChord: true });
+    expect(chunks.map((c) => c.map((w) => w.text).join(' '))).toEqual([
+      "'Twas grace that taught my",
+      'heart to',
+      'fear',
+    ]);
+  });
+
+  it('does not merge a leading fragment of 2 or more words', () => {
+    const words = tokenizeChordedLine('Oh what a [G]morning this is [D]turning out to be');
+    const chunks = chunkChordedLine(words, { maxWords: 99, maxSyllables: 99, breakAtEveryChord: true });
+    expect(chunks[0].map((w) => w.text).join(' ')).toBe('Oh what a');
+  });
+
+  it('leaves trailing and middle single-word chunks alone (out of scope for this pass)', () => {
+    // "fear" ends the line alone (last word, carries the final chord) --
+    // deliberately not rescued yet, per Rusty's own narrow scoping.
+    const words = tokenizeChordedLine("'Twas [G]grace that taught my [G7]heart to [C]fear");
+    const chunks = chunkChordedLine(words, { maxWords: 99, maxSyllables: 99, breakAtEveryChord: true });
+    expect(chunks[chunks.length - 1].map((w) => w.text).join(' ')).toBe('fear');
+  });
+});
+
+describe('chunkChordedLine leading-orphan rescue without breakAtEveryChord', () => {
+  it('also merges a lone leading word produced by an ordinary length-cap cut, chords entirely off', () => {
+    // No chord data at all here -- this exercises the plain word-cap path,
+    // confirming the rescue isn't tied to breakAtEveryChord or chords being
+    // on. A preferred break right after word 1 (before "and") plus a tight
+    // cap is enough to strand "So" alone without the fix.
+    const words = tokenizePlainLine('So and then we carried on for a while');
+    const chunks = chunkChordedLine(words, { maxWords: 1, maxSyllables: 99 });
+    expect(chunks[0].length).toBeGreaterThan(1);
+  });
 });
 
 describe('renderChunk', () => {
@@ -153,6 +198,33 @@ describe('renderChunk', () => {
   it('converts chord symbols to speakable phrases when included', () => {
     const words = tokenizeChordedLine('[Gsus4]Wait [F#]here');
     expect(renderChunk(words, true)).toBe('G sus four, Wait F sharp, here');
+  });
+});
+
+describe('renderChunkSegments', () => {
+  it('degenerates to one plain segment when higherPitchForChords is off, even with chords included', () => {
+    const words = tokenizeChordedLine('[G]In the [D]sunshine');
+    expect(renderChunkSegments(words, true, false)).toEqual([{ text: 'G, In the D, sunshine' }]);
+  });
+
+  it('degenerates to one plain segment when includeChords is off, regardless of the pitch preference', () => {
+    const words = tokenizeChordedLine('[G]In the [D]sunshine');
+    expect(renderChunkSegments(words, false, true)).toEqual([{ text: 'In the sunshine' }]);
+  });
+
+  it('splits into a pitched segment per chord plus grouped word segments when both are on', () => {
+    const words = tokenizeChordedLine('[G]In the sunshine [D]in the moonlight');
+    expect(renderChunkSegments(words, true, true)).toEqual([
+      { text: 'G', pitch: CHORD_PITCH },
+      { text: 'In the sunshine' },
+      { text: 'D', pitch: CHORD_PITCH },
+      { text: 'in the moonlight' },
+    ]);
+  });
+
+  it('does not introduce a pitched segment for a chordless chunk', () => {
+    const words = tokenizePlainLine('just plain words here');
+    expect(renderChunkSegments(words, true, true)).toEqual([{ text: 'just plain words here' }]);
   });
 });
 
@@ -190,5 +262,31 @@ describe('wrapChordedSongLines', () => {
       true
     );
     expect(result.lines).toEqual(['G, Amazing grace, how C, sweet the sound']);
+  });
+
+  it('produces matching pitched segments per line when higherPitchForChords is on', () => {
+    const input = {
+      chordedLines: [tokenizeChordedLine('[G]Amazing grace, how [C]sweet the sound')],
+      sections: [],
+    };
+    const result = wrapChordedSongLines(input, { maxWords: Infinity, maxSyllables: Infinity }, true, true);
+    expect(result.lines).toEqual(['G, Amazing grace, how C, sweet the sound']);
+    expect(result.segments).toEqual([
+      [
+        { text: 'G', pitch: CHORD_PITCH },
+        { text: 'Amazing grace, how' },
+        { text: 'C', pitch: CHORD_PITCH },
+        { text: 'sweet the sound' },
+      ],
+    ]);
+  });
+
+  it('defaults higherPitchForChords to off when omitted, keeping segments as one plain entry per line', () => {
+    const input = {
+      chordedLines: [tokenizeChordedLine('[G]Amazing grace')],
+      sections: [],
+    };
+    const result = wrapChordedSongLines(input, { maxWords: Infinity, maxSyllables: Infinity }, true);
+    expect(result.segments).toEqual([[{ text: 'G, Amazing grace' }]]);
   });
 });

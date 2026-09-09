@@ -5,8 +5,15 @@ import { chordToSpeech } from './chordPronunciation';
 
 export type LineWrapResult = {
   lines: string[];
+  segments: SpeechSegment[][];
   sections: SectionMarker[];
 };
+
+/** One piece of a spoken line — a run of text at a given pitch (1.0 = normal). */
+export type SpeechSegment = { text: string; pitch?: number };
+
+/** How much higher a chord name is spoken when the pitch-shift preference is on. */
+export const CHORD_PITCH = 1.3;
 
 export type LineWrapOptions = {
   maxWords: number;
@@ -99,6 +106,20 @@ export function chunkChordedLine(words: ChordedWord[], options: LineWrapOptions)
     chunks.push(chunkWords);
   }
 
+  // A lone leading word (whatever split it off -- a forced chord break, or
+  // just an early preferred-break/length-cap cut) reads as an orphan no
+  // matter what caused it, so this rescue applies unconditionally rather
+  // than only under breakAtEveryChord. Deliberately narrow for now, per
+  // Rusty's own "let's start small" scoping 2026-09-09: only the FIRST
+  // chunk is rescued, and only when it's exactly one word. Trailing or
+  // middle single-word chunks are left alone. Overflowing maxWords/
+  // maxSyllables slightly on the merged result is accepted -- avoiding a
+  // stranded single word matters more here than the length target.
+  if (chunks.length > 1 && chunks[0].length === 1) {
+    chunks[1] = [...chunks[0], ...chunks[1]];
+    chunks.shift();
+  }
+
   return chunks;
 }
 
@@ -120,6 +141,50 @@ export function renderChunk(chunk: ChordedWord[], includeChords: boolean): strin
     .join(' ');
 }
 
+/**
+ * Same content as renderChunk, but as a sequence of speech segments instead
+ * of one flat string — used when the "speak chords at a higher pitch"
+ * preference is on, since expo-speech applies one pitch per speak() call, so
+ * making the chord name sound different means giving it its own utterance.
+ * Groups consecutive chordless words together into one normal-pitch segment
+ * rather than splitting every single word, so a long chord-sparse run still
+ * plays as one smooth utterance instead of a choppy word-by-word sequence —
+ * only an actual chord change introduces a new segment.
+ *
+ * When higherPitchForChords is off, this degenerates to exactly one segment
+ * with the same text renderChunk would produce, so nothing about existing
+ * playback changes unless the preference is explicitly turned on.
+ */
+export function renderChunkSegments(
+  chunk: ChordedWord[],
+  includeChords: boolean,
+  higherPitchForChords: boolean
+): SpeechSegment[] {
+  if (!includeChords || !higherPitchForChords) {
+    return [{ text: renderChunk(chunk, includeChords) }];
+  }
+
+  const segments: SpeechSegment[] = [];
+  let currentWords: string[] = [];
+  const flushWords = () => {
+    if (currentWords.length > 0) {
+      segments.push({ text: currentWords.join(' ') });
+      currentWords = [];
+    }
+  };
+
+  for (const word of chunk) {
+    if (word.chord) {
+      flushWords();
+      segments.push({ text: chordToSpeech(word.chord), pitch: CHORD_PITCH });
+    }
+    currentWords.push(word.text);
+  }
+  flushWords();
+
+  return segments;
+}
+
 /** Convenience wrapper for a plain lyric line with no chord data. */
 export function wrapLine(line: string, options: LineWrapOptions): string[] {
   const chunks = chunkChordedLine(tokenizePlainLine(line), options);
@@ -139,9 +204,11 @@ export type ChordedSongInput = {
 export function wrapChordedSongLines(
   input: ChordedSongInput,
   options: LineWrapOptions,
-  includeChords: boolean
+  includeChords: boolean,
+  higherPitchForChords: boolean = false
 ): LineWrapResult {
   const outLines: string[] = [];
+  const outSegments: SpeechSegment[][] = [];
   const oldToNewIndex: number[] = [];
 
   for (const words of input.chordedLines) {
@@ -151,9 +218,13 @@ export function wrapChordedSongLines(
       // Shouldn't normally happen (empty lines are filtered out upstream),
       // but keep the line rather than silently dropping it if it does.
       outLines.push('');
+      outSegments.push([{ text: '' }]);
       continue;
     }
-    outLines.push(...chunks.map((chunk) => renderChunk(chunk, includeChords)));
+    for (const chunk of chunks) {
+      outLines.push(renderChunk(chunk, includeChords));
+      outSegments.push(renderChunkSegments(chunk, includeChords, higherPitchForChords));
+    }
   }
 
   const outSections = input.sections.map((section) => ({
@@ -161,5 +232,5 @@ export function wrapChordedSongLines(
     lineIndex: oldToNewIndex[section.lineIndex] ?? section.lineIndex,
   }));
 
-  return { lines: outLines, sections: outSections };
+  return { lines: outLines, segments: outSegments, sections: outSections };
 }
