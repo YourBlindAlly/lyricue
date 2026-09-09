@@ -106,6 +106,8 @@ export const en = {
       "Experimental. Tells VoiceOver an audio session is active on the lyrics screen, so it interrupts LyriCue's speech less — touch and buttons still work normally. Swipe up to turn on, down to turn off.",
     toggleOnActionLabel: 'Turn on',
     toggleOffActionLabel: 'Turn off',
+    stateOnLabel: 'On',
+    stateOffLabel: 'Off',
     speakingSpeedHint: 'Swipe up for faster, down for slower.',
     fasterActionLabel: 'Faster',
     slowerActionLabel: 'Slower',

@@ -108,6 +108,8 @@ export const uk: Strings = {
       'Експериментально. Повідомляє VoiceOver, що на екрані тексту пісні активний аудіосеанс, тому він рідше перериває мовлення LyriCue — дотики та кнопки, як і раніше, працюють нормально. Проведіть вгору, щоб увімкнути, вниз — щоб вимкнути.',
     toggleOnActionLabel: 'Увімкнути',
     toggleOffActionLabel: 'Вимкнути',
+    stateOnLabel: 'Увімкнено',
+    stateOffLabel: 'Вимкнено',
     speakingSpeedHint: 'Проведіть вгору, щоб швидше, вниз — щоб повільніше.',
     fasterActionLabel: 'Швидше',
     slowerActionLabel: 'Повільніше',

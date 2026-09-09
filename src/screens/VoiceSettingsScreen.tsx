@@ -79,6 +79,15 @@ function ToggleRow({
   offLabel: string;
   reduceHints: boolean;
 }) {
+  // Deliberately separate from onLabel/offLabel: those describe the ACTION
+  // a swipe performs ("Turn on"/"Turn off", read as an available action),
+  // while accessibilityValue must describe the current STATE. Reusing the
+  // action wording here was a real bug -- Rusty reported hearing "reduce
+  // VoiceOver chatter while performing: turn off" and asked why it wasn't
+  // just speaking on/off, 2026-09-09.
+  const strings = useStrings();
+  const stateOnLabel = strings.voiceSettings.stateOnLabel;
+  const stateOffLabel = strings.voiceSettings.stateOffLabel;
   return (
     <Pressable
       style={styles.chatterRow}
@@ -86,7 +95,7 @@ function ToggleRow({
       accessible
       accessibilityRole="adjustable"
       accessibilityLabel={label}
-      accessibilityValue={{ text: value ? onLabel : offLabel }}
+      accessibilityValue={{ text: value ? stateOnLabel : stateOffLabel }}
       accessibilityHint={hintOrNone(hint, reduceHints)}
       accessibilityActions={[
         { name: 'increment', label: onLabel },
@@ -387,7 +396,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         style={styles.sectionList}
         sections={sections}
         keyExtractor={(item) => item.identifier}
-        ListHeaderComponent={() => listHeader}
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={
           voices === null ? (
             <Text style={styles.loadingText}>{strings.voiceSettings.loadingVoicesText}</Text>
