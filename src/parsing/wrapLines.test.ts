@@ -215,10 +215,23 @@ describe('renderChunkSegments', () => {
   it('splits into a pitched segment per chord plus grouped word segments when both are on', () => {
     const words = tokenizeChordedLine('[G]In the sunshine [D]in the moonlight');
     expect(renderChunkSegments(words, true, true)).toEqual([
-      { text: 'G', pitch: CHORD_PITCH },
+      { text: 'G!', pitch: CHORD_PITCH },
       { text: 'In the sunshine' },
-      { text: 'D', pitch: CHORD_PITCH },
+      { text: 'D!', pitch: CHORD_PITCH },
       { text: 'in the moonlight' },
+    ]);
+  });
+
+  it('appends "!" even to a bare single-letter root, not just chords with a suffix', () => {
+    // A plain root chord like "G" has nothing else in its own isolated
+    // utterance, which iOS reads as "capital G" rather than the letter
+    // sound (confirmed on-device 2026-09-10) -- the exclamation mark is an
+    // attempt to dodge that without adding a spoken word every chord
+    // change; unclear yet whether it actually works on-device.
+    const words = tokenizeChordedLine('[C]Home');
+    expect(renderChunkSegments(words, true, true)).toEqual([
+      { text: 'C!', pitch: CHORD_PITCH },
+      { text: 'Home' },
     ]);
   });
 
@@ -273,9 +286,9 @@ describe('wrapChordedSongLines', () => {
     expect(result.lines).toEqual(['G, Amazing grace, how C, sweet the sound']);
     expect(result.segments).toEqual([
       [
-        { text: 'G', pitch: CHORD_PITCH },
+        { text: 'G!', pitch: CHORD_PITCH },
         { text: 'Amazing grace, how' },
-        { text: 'C', pitch: CHORD_PITCH },
+        { text: 'C!', pitch: CHORD_PITCH },
         { text: 'sweet the sound' },
       ],
     ]);

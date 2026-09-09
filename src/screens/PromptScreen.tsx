@@ -24,6 +24,7 @@ import {
 import { loadIncludeChords, saveIncludeChords } from '../parsing/chordsPreference';
 import { loadBreakAtChords, saveBreakAtChords } from '../parsing/chordLineBreaksPreference';
 import { loadHigherPitchForChords, saveHigherPitchForChords } from '../speech/chordPitchPreference';
+import { loadRepeatFeatureEnabled } from '../pedal/repeatFeaturePreference';
 import { buildSongAnnouncement } from '../speech/songAnnouncement';
 import { wrapChordedSongLines, type LineWrapResult, type SpeechSegment } from '../parsing/wrapLines';
 import { playAdvanceFeedback, playEndOfSongFeedback, playSongChangeFeedback } from '../feedback/feedback';
@@ -82,6 +83,7 @@ export function PromptScreen({ navigation }: Props) {
   const [includeChords, setIncludeChords] = useState<boolean | null>(null);
   const [breakAtChords, setBreakAtChords] = useState<boolean | null>(null);
   const [higherPitchForChords, setHigherPitchForChords] = useState<boolean | null>(null);
+  const [repeatFeatureEnabled, setRepeatFeatureEnabled] = useState(true);
 
   useEffect(() => {
     loadReduceVoiceOverChatter().then(setReduceChatter);
@@ -89,6 +91,7 @@ export function PromptScreen({ navigation }: Props) {
     loadIncludeChords().then(setIncludeChords);
     loadBreakAtChords().then(setBreakAtChords);
     loadHigherPitchForChords().then(setHigherPitchForChords);
+    loadRepeatFeatureEnabled().then(setRepeatFeatureEnabled);
   }, []);
 
   // React Navigation reuses this screen's instance on goBack() rather than
@@ -104,6 +107,7 @@ export function PromptScreen({ navigation }: Props) {
       loadIncludeChords().then(setIncludeChords);
       loadBreakAtChords().then(setBreakAtChords);
       loadHigherPitchForChords().then(setHigherPitchForChords);
+      loadRepeatFeatureEnabled().then(setRepeatFeatureEnabled);
     });
     return unsubscribe;
   }, [navigation, refreshVoicePreference]);
@@ -298,7 +302,7 @@ export function PromptScreen({ navigation }: Props) {
   // longer than the window.
   const goNext = useCallback(() => {
     if (displayLines.length === 0) return;
-    const resolution = repeatControllerRef.current.resolveNext();
+    const resolution = repeatFeatureEnabled ? repeatControllerRef.current.resolveNext() : 'navigate';
     if (resolution === 'repeat' && currentIndex >= 0) {
       playAdvanceFeedback();
       speakSegments(displaySegments[currentIndex]);
@@ -313,7 +317,7 @@ export function PromptScreen({ navigation }: Props) {
     setCurrentIndex(nextIndex);
     playAdvanceFeedback();
     speakSegments(displaySegments[nextIndex]);
-  }, [currentIndex, displayLines, displaySegments, speakSegments, stopImmediate]);
+  }, [currentIndex, displayLines, displaySegments, repeatFeatureEnabled, speakSegments, stopImmediate]);
 
   const goPrevious = useCallback(() => {
     // currentIndex === -1 means nothing has been spoken yet — nothing to go
@@ -321,7 +325,7 @@ export function PromptScreen({ navigation }: Props) {
     if (displayLines.length === 0 || currentIndex < 0) {
       return;
     }
-    const resolution = repeatControllerRef.current.resolveBack();
+    const resolution = repeatFeatureEnabled ? repeatControllerRef.current.resolveBack() : 'navigate';
     if (resolution === 'repeat') {
       playAdvanceFeedback();
       speakSegments(displaySegments[currentIndex]);
@@ -331,7 +335,7 @@ export function PromptScreen({ navigation }: Props) {
     setCurrentIndex(prevIndex);
     playAdvanceFeedback();
     speakSegments(displaySegments[prevIndex]);
-  }, [currentIndex, displayLines, displaySegments, speakSegments]);
+  }, [currentIndex, displayLines, displaySegments, repeatFeatureEnabled, speakSegments]);
 
   // Shared by the pedal's double-press, the on-screen song-corner buttons,
   // and the adjustable "song N of M" text below — every trigger for a

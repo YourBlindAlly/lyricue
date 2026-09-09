@@ -2,8 +2,11 @@
  * Repeat window, chosen to comfortably cover "I just pressed the wrong
  * button" or "play that again right now" without being so long that an
  * ordinary next press made a beat later gets swallowed into a repeat.
+ * Started at 1000ms; Rusty reported the forward-repeat case (a quick next
+ * after a back) was landing outside the window slightly too often in real
+ * use, so bumped to 1500ms, 2026-09-10.
  */
-export const REPEAT_WINDOW_MS = 1000;
+export const REPEAT_WINDOW_MS = 1500;
 
 type PressType = 'back' | 'fwd';
 

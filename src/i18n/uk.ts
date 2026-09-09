@@ -98,6 +98,13 @@ export const uk: Strings = {
     cancelLabel: 'Скасувати',
     assignButtonLabel: 'Натисніть кнопку, щоб призначити',
     alertOnDisconnectLabel: 'Сповіщати про відключення педалі',
+    repeatFeatureLabel: 'Повторювати рядок перед переходом далі',
+    repeatFeatureHint:
+      'Увімкнено за замовчуванням. Натискання "назад" повторює поточний рядок, перш ніж справді перейти назад; швидке "вперед" після цього також повторює замість переходу далі. Проведіть вгору, щоб увімкнути, вниз — щоб вимкнути.',
+    repeatOnActionLabel: 'Увімкнути',
+    repeatOffActionLabel: 'Вимкнути',
+    repeatStateOnLabel: 'Увімкнено',
+    repeatStateOffLabel: 'Вимкнено',
   },
 
   voiceSettings: {

@@ -176,7 +176,17 @@ export function renderChunkSegments(
   for (const word of chunk) {
     if (word.chord) {
       flushWords();
-      segments.push({ text: chordToSpeech(word.chord), pitch: CHORD_PITCH });
+      // A trailing "!" rather than speaking the bare chord name alone --
+      // confirmed on-device 2026-09-10 that a fully isolated single letter
+      // (a plain root chord like "G" or "C" has nothing else in its
+      // utterance) gets read by iOS's speech engine as "capital G" rather
+      // than just the letter, since a standalone single character triggers
+      // its own letter-disambiguation reading. Appending a word ("G chord")
+      // would dodge this reliably but costs real time on every chord change
+      // during a live performance, so trying silent punctuation first --
+      // still needs on-device confirmation that it actually avoids the
+      // letter-disambiguation reading, not just a syntactic tweak.
+      segments.push({ text: `${chordToSpeech(word.chord)}!`, pitch: CHORD_PITCH });
     }
     currentWords.push(word.text);
   }

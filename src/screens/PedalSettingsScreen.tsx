@@ -1,17 +1,82 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { usePedalInput } from '../pedal/usePedalInput';
 import type { PedalAction } from '../pedal/keyBindings';
+import { loadRepeatFeatureEnabled, saveRepeatFeatureEnabled } from '../pedal/repeatFeaturePreference';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PedalSettings'>;
 
+/**
+ * One VoiceOver stop, swipe-adjustable + tap fallback -- the same pattern
+ * VoiceSettingsScreen's toggles use, per the standing rule that every new
+ * toggle defaults to swipe as the primary interaction (confirmed 2026-09-09
+ * that this applies to plain on/off controls too, not just multi-state
+ * ones). Not retrofitted onto the existing "Alert on disconnect" toggle
+ * below, which predates that rule and wasn't part of this request.
+ */
+function ToggleRow({
+  label,
+  hint,
+  value,
+  onValueChange,
+  onLabel,
+  offLabel,
+  stateOnLabel,
+  stateOffLabel,
+}: {
+  label: string;
+  hint: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  onLabel: string;
+  offLabel: string;
+  stateOnLabel: string;
+  stateOffLabel: string;
+}) {
+  return (
+    <Pressable
+      style={styles.toggleRow}
+      onPress={() => onValueChange(!value)}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={label}
+      accessibilityValue={{ text: value ? stateOnLabel : stateOffLabel }}
+      accessibilityHint={hint}
+      accessibilityActions={[
+        { name: 'increment', label: onLabel },
+        { name: 'decrement', label: offLabel },
+      ]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'increment') {
+          onValueChange(true);
+        } else if (event.nativeEvent.actionName === 'decrement') {
+          onValueChange(false);
+        }
+      }}
+    >
+      <Text style={styles.actionLabel}>{label}</Text>
+      <Switch value={value} pointerEvents="none" />
+    </Pressable>
+  );
+}
+
 export function PedalSettingsScreen({ navigation }: Props) {
   const strings = useStrings();
+  const [repeatFeatureEnabled, setRepeatFeatureEnabled] = useState(true);
+
+  useEffect(() => {
+    loadRepeatFeatureEnabled().then(setRepeatFeatureEnabled);
+  }, []);
+
+  const handleToggleRepeatFeature = (value: boolean) => {
+    setRepeatFeatureEnabled(value);
+    void saveRepeatFeatureEnabled(value);
+  };
   const ACTION_LABELS: Record<PedalAction, string> = {
     next: strings.pedalSettings.actionLabelNext,
     previous: strings.pedalSettings.actionLabelPrevious,
@@ -98,6 +163,17 @@ export function PedalSettingsScreen({ navigation }: Props) {
         <Text style={styles.actionLabel}>{strings.pedalSettings.alertOnDisconnectLabel}</Text>
         <Switch value={alertOnDisconnect} onValueChange={setAlertOnDisconnect} />
       </View>
+
+      <ToggleRow
+        label={strings.pedalSettings.repeatFeatureLabel}
+        hint={strings.pedalSettings.repeatFeatureHint}
+        value={repeatFeatureEnabled}
+        onValueChange={handleToggleRepeatFeature}
+        onLabel={strings.pedalSettings.repeatOnActionLabel}
+        offLabel={strings.pedalSettings.repeatOffActionLabel}
+        stateOnLabel={strings.pedalSettings.repeatStateOnLabel}
+        stateOffLabel={strings.pedalSettings.repeatStateOffLabel}
+      />
     </ScrollView>
     </SafeAreaView>
   );

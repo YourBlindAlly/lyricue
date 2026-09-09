@@ -96,6 +96,13 @@ export const en = {
     cancelLabel: 'Cancel',
     assignButtonLabel: 'Press a button to assign',
     alertOnDisconnectLabel: 'Alert when pedal disconnects',
+    repeatFeatureLabel: 'Repeat a line before moving on',
+    repeatFeatureHint:
+      'On by default. A back press repeats the current line before it actually goes back; a quick next after that repeats again instead of advancing. Swipe up to turn on, down to turn off.',
+    repeatOnActionLabel: 'Turn on',
+    repeatOffActionLabel: 'Turn off',
+    repeatStateOnLabel: 'On',
+    repeatStateOffLabel: 'Off',
   },
 
   voiceSettings: {
