@@ -102,7 +102,6 @@ function ToggleRow({
     >
       <View style={styles.chatterTextBlock}>
         <Text style={styles.actionLabel}>{label}</Text>
-        <Text style={styles.chatterHint}>{hint}</Text>
       </View>
       <Switch value={value} pointerEvents="none" />
     </Pressable>
@@ -498,12 +497,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  chatterHint: {
-    color: '#999',
-    fontSize: 13,
-    marginTop: 4,
-    lineHeight: 18,
   },
   currentVoiceBlock: {
     marginBottom: 16,
