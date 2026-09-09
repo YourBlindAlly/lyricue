@@ -119,6 +119,11 @@ export const en = {
     showLowQualityLabel: 'Show lower quality voices',
     showLowQualityHint:
       'Off by default — only shows higher quality (Enhanced or Premium) voices for each language, not the standard-quality one.',
+    tickSoundLabel: 'Play a beep when advancing lines',
+    tickSoundHint: 'On by default. The vibration on advance stays on either way.',
+    reduceHintsLabel: 'Reduce hints on controls',
+    reduceHintsHint:
+      'Off by default. When on, VoiceOver skips the usage tip on every control ("swipe up for faster") and just speaks its name and value — useful once you already know how each control works.',
     loadingVoicesText: 'Loading voices…',
     noVoicesFoundText: 'No voices found on this device.',
     voiceRowAccessibilityLabel: (name: string, language: string) => `${name}, ${language}`,

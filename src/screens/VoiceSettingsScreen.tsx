@@ -16,6 +16,11 @@ import {
   saveShowLowQualityVoices,
 } from '../speech/showLowQualityVoicesPreference';
 import {
+  loadTickSoundEnabled,
+  saveTickSoundEnabled,
+} from '../feedback/tickSoundPreference';
+import { setTickSoundEnabled } from '../feedback/feedback';
+import {
   DEFAULT_VOICE_RATE,
   decreaseVoiceRate,
   increaseVoiceRate,
@@ -42,6 +47,8 @@ import {
 import { groupVoicesByLanguage } from '../speech/groupVoicesByLanguage';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
+import { useAppState } from '../state/AppStateContext';
+import { hintOrNone } from '../speech/reduceHintsPreference';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VoiceSettings'>;
 
@@ -87,11 +94,13 @@ function ToggleRow({
 
 export function VoiceSettingsScreen({ navigation }: Props) {
   const strings = useStrings();
+  const { reduceHints, setReduceHints } = useAppState();
   const onBack = () => navigation.goBack();
   const [voices, setVoices] = useState<Voice[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reduceChatter, setReduceChatter] = useState(false);
   const [showLowQuality, setShowLowQuality] = useState(false);
+  const [tickSound, setTickSound] = useState(true);
   const [rate, setRate] = useState<VoiceRate>(DEFAULT_VOICE_RATE);
   const [volume, setVolume] = useState<VoiceVolume>(DEFAULT_VOICE_VOLUME);
   // English always, plus whatever other language(s) the device itself is
@@ -101,20 +110,23 @@ export function VoiceSettingsScreen({ navigation }: Props) {
 
   useEffect(() => {
     (async () => {
-      const [available, saved, chatterSetting, showLowQ, savedRate, savedVolume] = await Promise.all([
-        Speech.getAvailableVoicesAsync(),
-        loadVoicePreference(),
-        loadReduceVoiceOverChatter(),
-        loadShowLowQualityVoices(),
-        loadVoiceRate(),
-        loadVoiceVolume(),
-      ]);
+      const [available, saved, chatterSetting, showLowQ, savedRate, savedVolume, savedTickSound] =
+        await Promise.all([
+          Speech.getAvailableVoicesAsync(),
+          loadVoicePreference(),
+          loadReduceVoiceOverChatter(),
+          loadShowLowQualityVoices(),
+          loadVoiceRate(),
+          loadVoiceVolume(),
+          loadTickSoundEnabled(),
+        ]);
       setVoices(available);
       setSelectedId(saved);
       setReduceChatter(chatterSetting);
       setShowLowQuality(showLowQ);
       setRate(savedRate);
       setVolume(savedVolume);
+      setTickSound(savedTickSound);
       setPreferredCodes(preferredLanguageCodes(Localization.getLocales()));
     })();
     return () => {
@@ -130,6 +142,16 @@ export function VoiceSettingsScreen({ navigation }: Props) {
   const handleToggleShowLowQuality = (value: boolean) => {
     setShowLowQuality(value);
     void saveShowLowQualityVoices(value);
+  };
+
+  const handleToggleTickSound = (value: boolean) => {
+    setTickSound(value);
+    setTickSoundEnabled(value);
+    void saveTickSoundEnabled(value);
+  };
+
+  const handleToggleReduceHints = (value: boolean) => {
+    void setReduceHints(value);
   };
 
   // Swipe up/down while focused (VoiceOver's native "adjustable" gesture,
@@ -219,13 +241,20 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         onValueChange={handleToggleReduceChatter}
       />
 
+      <ToggleRow
+        label={strings.voiceSettings.reduceHintsLabel}
+        hint={strings.voiceSettings.reduceHintsHint}
+        value={reduceHints}
+        onValueChange={handleToggleReduceHints}
+      />
+
       <View
         style={styles.rateRow}
         accessible
         accessibilityRole="adjustable"
         accessibilityLabel={strings.voiceSettings.speakingSpeedText}
         accessibilityValue={{ text: voiceRateLabel(rate) }}
-        accessibilityHint={strings.voiceSettings.speakingSpeedHint}
+        accessibilityHint={hintOrNone(strings.voiceSettings.speakingSpeedHint, reduceHints)}
         accessibilityActions={[
           { name: 'increment', label: strings.voiceSettings.fasterActionLabel },
           { name: 'decrement', label: strings.voiceSettings.slowerActionLabel },
@@ -248,7 +277,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         accessibilityRole="adjustable"
         accessibilityLabel={strings.voiceSettings.speakingVolumeText}
         accessibilityValue={{ text: voiceVolumeLabel(volume) }}
-        accessibilityHint={strings.voiceSettings.speakingVolumeHint}
+        accessibilityHint={hintOrNone(strings.voiceSettings.speakingVolumeHint, reduceHints)}
         accessibilityActions={[
           { name: 'increment', label: strings.voiceSettings.louderActionLabel },
           { name: 'decrement', label: strings.voiceSettings.quieterActionLabel },
@@ -264,6 +293,13 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         <Text style={styles.actionLabel}>{strings.voiceSettings.speakingVolumeText}</Text>
         <Text style={styles.rateValue}>{voiceVolumeLabel(volume)}</Text>
       </View>
+
+      <ToggleRow
+        label={strings.voiceSettings.tickSoundLabel}
+        hint={strings.voiceSettings.tickSoundHint}
+        value={tickSound}
+        onValueChange={handleToggleTickSound}
+      />
 
       <Pressable
         style={[styles.voiceRow, selectedId === null && styles.voiceRowSelected]}

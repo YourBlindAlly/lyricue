@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppState } from '../state/AppStateContext';
 import { deleteSetlist, listSetlists, loadSetlist, type SetlistSummary } from '../setlist/setlistStorage';
+import { hintOrNone } from '../speech/reduceHintsPreference';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
 
@@ -12,7 +13,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Setlists'>;
 
 export function SetlistsScreen({ navigation }: Props) {
   const strings = useStrings();
-  const { activeSetlist, startSetlist, clearSetlist } = useAppState();
+  const { activeSetlist, startSetlist, clearSetlist, reduceHints } = useAppState();
   const [setlists, setSetlists] = useState<SetlistSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingOne, setIsLoadingOne] = useState(false);
@@ -149,11 +150,10 @@ export function SetlistsScreen({ navigation }: Props) {
                           )
                         : item.name
                     }
-                    accessibilityHint={
-                      isActive
-                        ? strings.setlists.resumeHint
-                        : strings.setlists.playHint
-                    }
+                    accessibilityHint={hintOrNone(
+                      isActive ? strings.setlists.resumeHint : strings.setlists.playHint,
+                      reduceHints
+                    )}
                     accessibilityActions={
                       isActive
                         ? [{ name: 'stop', label: strings.setlists.stopFollowingActionLabel }]

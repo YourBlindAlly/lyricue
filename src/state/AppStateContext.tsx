@@ -8,6 +8,7 @@ import {
 } from '../storage/activeSetlist';
 import { loadLibrary, removeLibrarySong, upsertLibrarySong } from '../library/libraryStorage';
 import { resolveSetlistEntry } from '../setlist/resolveSetlistEntry';
+import { loadReduceHints, saveReduceHints } from '../speech/reduceHintsPreference';
 import type { Setlist } from '../setlist/setlistCsv';
 import type { Song } from '../types';
 
@@ -33,6 +34,9 @@ type AppStateValue = {
    */
   advanceSetlist: (direction: 'next' | 'previous') => Promise<Song | null>;
   clearSetlist: () => Promise<void>;
+  /** Off by default. When on, VoiceOver usage hints ("swipe up for faster") are stripped from every control app-wide — see src/speech/reduceHintsPreference.ts. */
+  reduceHints: boolean;
+  setReduceHints: (value: boolean) => Promise<void>;
 };
 
 const AppStateContext = createContext<AppStateValue | null>(null);
@@ -48,6 +52,7 @@ export function AppStateProvider({
   const [library, setLibrary] = useState<Song[]>([]);
   const [isLibraryLoaded, setIsLibraryLoaded] = useState(false);
   const [activeSetlist, setActiveSetlistState] = useState<ActiveSetlistState | null>(null);
+  const [reduceHints, setReduceHintsState] = useState(false);
 
   useEffect(() => {
     loadLibrary().then((songs) => {
@@ -55,6 +60,12 @@ export function AppStateProvider({
       setIsLibraryLoaded(true);
     });
     loadActiveSetlist().then(setActiveSetlistState);
+    loadReduceHints().then(setReduceHintsState);
+  }, []);
+
+  const setReduceHints = useCallback(async (value: boolean) => {
+    setReduceHintsState(value);
+    await saveReduceHints(value);
   }, []);
 
   const loadSong = useCallback(async (song: Song) => {
@@ -133,6 +144,8 @@ export function AppStateProvider({
         startSetlist,
         advanceSetlist,
         clearSetlist,
+        reduceHints,
+        setReduceHints,
       }}
     >
       {children}

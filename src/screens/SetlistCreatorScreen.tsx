@@ -8,6 +8,7 @@ import { saveSetlist } from '../setlist/setlistStorage';
 import type { SetlistEntry } from '../setlist/setlistCsv';
 import type { Song } from '../types';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { hintOrNone } from '../speech/reduceHintsPreference';
 import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SetlistCreator'>;
@@ -21,7 +22,7 @@ function entryFor(song: Song): SetlistEntry {
 
 export function SetlistCreatorScreen({ navigation }: Props) {
   const strings = useStrings();
-  const { library } = useAppState();
+  const { library, reduceHints } = useAppState();
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
   const [entries, setEntries] = useState<SetlistEntry[]>([]);
@@ -147,7 +148,7 @@ export function SetlistCreatorScreen({ navigation }: Props) {
                 onPress={() => {}}
                 accessibilityRole="button"
                 accessibilityLabel={strings.setlistCreator.entryAccessibilityLabel(index + 1, entry.title)}
-                accessibilityHint={strings.setlistCreator.entryHint}
+                accessibilityHint={hintOrNone(strings.setlistCreator.entryHint, reduceHints)}
                 accessibilityActions={actions}
                 onAccessibilityAction={(event) => {
                   switch (event.nativeEvent.actionName) {
@@ -207,7 +208,7 @@ export function SetlistCreatorScreen({ navigation }: Props) {
               disabled={added}
               accessibilityRole="button"
               accessibilityLabel={added ? strings.setlistCreator.addedAccessibilityLabel(item.title) : item.title}
-              accessibilityHint={added ? undefined : strings.setlistCreator.addHint}
+              accessibilityHint={added ? undefined : hintOrNone(strings.setlistCreator.addHint, reduceHints)}
             >
               <Text style={styles.libraryTitle} numberOfLines={1}>
                 {item.title}

@@ -10,6 +10,7 @@ import { useAppState } from '../state/AppStateContext';
 import { useSpeech } from '../speech/useSpeech';
 import { useAudioInterruptionResume } from '../speech/useAudioInterruptionResume';
 import { loadReduceVoiceOverChatter } from '../speech/voiceOverPreference';
+import { hintOrNone } from '../speech/reduceHintsPreference';
 import {
   DEFAULT_LINE_LENGTH_PRESET,
   LINE_LENGTH_PRESET_LABEL,
@@ -50,7 +51,7 @@ export function PromptScreen({ navigation }: Props) {
   // suppressDeactivateWarnings avoids a benign unhandled-rejection when the
   // screen unmounts before the (async, web-only) Wake Lock activation settles.
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
-  const { activeSong: song, activeSetlist, advanceSetlist } = useAppState();
+  const { activeSong: song, activeSetlist, advanceSetlist, reduceHints } = useAppState();
   const { speakNow, stopImmediate, refreshVoicePreference } = useSpeech();
   // React Navigation is supposed to fully unmount a screen once it's popped
   // off the stack, but Rusty found a real, reproducible case where that
@@ -368,7 +369,7 @@ export function PromptScreen({ navigation }: Props) {
             <View
               accessible
               accessibilityRole="adjustable"
-              accessibilityHint={strings.promptScreen.setlistJumpHint}
+              accessibilityHint={hintOrNone(strings.promptScreen.setlistJumpHint, reduceHints)}
               onAccessibilityAction={(event) => {
                 if (event.nativeEvent.actionName === 'decrement') {
                   jumpSetlistSong('next');
@@ -419,7 +420,7 @@ export function PromptScreen({ navigation }: Props) {
             accessibilityRole="adjustable"
             accessibilityLabel={strings.promptScreen.linesText}
             accessibilityValue={{ text: LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET] }}
-            accessibilityHint={strings.promptScreen.linesHint}
+            accessibilityHint={hintOrNone(strings.promptScreen.linesHint, reduceHints)}
             accessibilityActions={[
               { name: 'increment', label: strings.promptScreen.longerActionLabel },
               { name: 'decrement', label: strings.promptScreen.shorterActionLabel },
@@ -445,7 +446,7 @@ export function PromptScreen({ navigation }: Props) {
             accessibilityValue={{
               text: includeChords ? strings.promptScreen.chordsOnActionLabel : strings.promptScreen.chordsOffActionLabel,
             }}
-            accessibilityHint={strings.promptScreen.chordsHint}
+            accessibilityHint={hintOrNone(strings.promptScreen.chordsHint, reduceHints)}
             accessibilityActions={[
               { name: 'increment', label: strings.promptScreen.chordsOnActionLabel },
               { name: 'decrement', label: strings.promptScreen.chordsOffActionLabel },
@@ -471,7 +472,7 @@ export function PromptScreen({ navigation }: Props) {
             accessibilityValue={{
               text: effectiveBreakAtChords ? strings.promptScreen.lineBreaksChordsValue : strings.promptScreen.lineBreaksWordsValue,
             }}
-            accessibilityHint={lineBreaksInteractive ? strings.promptScreen.lineBreaksHint : undefined}
+            accessibilityHint={lineBreaksInteractive ? hintOrNone(strings.promptScreen.lineBreaksHint, reduceHints) : undefined}
             accessibilityActions={
               lineBreaksInteractive
                 ? [
@@ -544,7 +545,7 @@ export function PromptScreen({ navigation }: Props) {
           // increment (swipe up) to previous, matching the down-advances
           // feel of the pedal bindings (Page Down/Down Arrow -> next) rather
           // than a slider's up-increases convention (Rusty's call, 2026-08-31).
-          accessibilityHint={strings.promptScreen.lyricsAreaHint}
+          accessibilityHint={hintOrNone(strings.promptScreen.lyricsAreaHint, reduceHints)}
           onAccessibilityAction={(event) => {
             if (event.nativeEvent.actionName === 'decrement') {
               goNext();

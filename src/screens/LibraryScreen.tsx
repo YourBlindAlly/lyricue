@@ -13,6 +13,7 @@ import {
   SORT_MODE_LABEL,
 } from '../library/librarySortPreference';
 import { sortLibraryForDisplay } from '../library/sortLibrary';
+import { hintOrNone } from '../speech/reduceHintsPreference';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
 import type { Song } from '../types';
@@ -27,7 +28,7 @@ export function LibraryScreen({ navigation }: Props) {
     dropbox: strings.library.sourceLabelDropbox,
     demo: strings.library.sourceLabelDemoSong,
   };
-  const { library, isLibraryLoaded, loadSong, removeFromLibrary } = useAppState();
+  const { library, isLibraryLoaded, loadSong, removeFromLibrary, reduceHints } = useAppState();
   const [isImporting, setIsImporting] = useState(false);
   const [sortMode, setSortMode] = useState(DEFAULT_SORT_MODE);
 
@@ -172,7 +173,7 @@ export function LibraryScreen({ navigation }: Props) {
           onPress={handleCycleSort}
           accessibilityRole="button"
           accessibilityLabel={strings.library.sortButtonLabel(SORT_MODE_LABEL[sortMode])}
-          accessibilityHint={strings.library.sortButtonHint}
+          accessibilityHint={hintOrNone(strings.library.sortButtonHint, reduceHints)}
         >
           <Text style={styles.sortButtonText}>{strings.library.sortButtonLabel(SORT_MODE_LABEL[sortMode])}</Text>
         </Pressable>
@@ -190,7 +191,7 @@ export function LibraryScreen({ navigation }: Props) {
               onPress={() => handleOpenSong(item)}
               accessibilityRole="button"
               accessibilityLabel={strings.library.songRowAccessibilityLabel(item.title, SOURCE_LABEL[item.source.type])}
-              accessibilityHint={strings.library.songRowAccessibilityHint}
+              accessibilityHint={hintOrNone(strings.library.songRowAccessibilityHint, reduceHints)}
               // VoiceOver custom actions — swipe up/down while this row has
               // focus to cycle through Edit/Delete, double-tap to perform
               // whichever is selected — instead of separate Edit/Remove

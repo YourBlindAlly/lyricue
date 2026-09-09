@@ -21,6 +21,7 @@ import {
   saveDropboxSortMode,
 } from '../cloud/dropbox/dropboxSortPreference';
 import { sortDropboxEntriesForDisplay } from '../cloud/dropbox/sortDropboxEntries';
+import { hintOrNone } from '../speech/reduceHintsPreference';
 import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DropboxBrowse'>;
@@ -28,7 +29,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DropboxBrowse'>;
 export function DropboxBrowseScreen({ navigation, route }: Props) {
   const strings = useStrings();
   const path = route.params?.path ?? '';
-  const { loadSong, addToLibrary } = useAppState();
+  const { loadSong, addToLibrary, reduceHints } = useAppState();
   const { isConnected, isChecking, connect, disconnect } = useDropboxAuth();
   const [entries, setEntries] = useState<DropboxEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -257,7 +258,7 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
               onPress={handleCycleSort}
               accessibilityRole="button"
               accessibilityLabel={strings.dropboxBrowse.sortLabel(SORT_MODE_LABEL[sortMode])}
-              accessibilityHint={strings.dropboxBrowse.sortHint}
+              accessibilityHint={hintOrNone(strings.dropboxBrowse.sortHint, reduceHints)}
             >
               <Text style={styles.selectLink}>{strings.dropboxBrowse.sortLabel(SORT_MODE_LABEL[sortMode])}</Text>
             </Pressable>
@@ -268,7 +269,7 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
               onPress={handleToggleSelectMode}
               accessibilityRole="button"
               accessibilityLabel={isSelectMode ? strings.dropboxBrowse.selectModeCancelLabel : strings.dropboxBrowse.selectLabel}
-              accessibilityHint={isSelectMode ? undefined : strings.dropboxBrowse.selectHint}
+              accessibilityHint={isSelectMode ? undefined : hintOrNone(strings.dropboxBrowse.selectHint, reduceHints)}
             >
               <Text style={styles.selectLink}>{isSelectMode ? strings.dropboxBrowse.selectModeCancelLabel : strings.dropboxBrowse.selectLabel}</Text>
             </Pressable>

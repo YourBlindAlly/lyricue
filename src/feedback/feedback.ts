@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { loadTickSoundEnabled } from './tickSoundPreference';
 
 const tickSource = require('../../assets/audio/tick.wav');
 const endSource = require('../../assets/audio/end.wav');
@@ -8,6 +9,12 @@ const songChangeSource = require('../../assets/audio/songchange.wav');
 let tickPlayer: ReturnType<typeof createAudioPlayer> | null = null;
 let endPlayer: ReturnType<typeof createAudioPlayer> | null = null;
 let songChangePlayer: ReturnType<typeof createAudioPlayer> | null = null;
+
+// On by default. Loaded from storage at startup (configureAudioSession) and
+// kept in sync live by Voice Settings via setTickSoundEnabled when Rusty
+// flips the toggle, so a change takes effect immediately without needing to
+// reload the screen.
+let tickSoundEnabled = true;
 
 /**
  * Configures the audio session so LyriCue's TTS and feedback sounds always take
@@ -23,10 +30,19 @@ export async function configureAudioSession(): Promise<void> {
   tickPlayer = createAudioPlayer(tickSource);
   endPlayer = createAudioPlayer(endSource);
   songChangePlayer = createAudioPlayer(songChangeSource);
+  tickSoundEnabled = await loadTickSoundEnabled();
+}
+
+/** Lets Voice Settings apply a toggle change immediately, without waiting for the next app launch. */
+export function setTickSoundEnabled(enabled: boolean): void {
+  tickSoundEnabled = enabled;
 }
 
 export function playAdvanceFeedback(): void {
+  // The haptic tap stays regardless of this setting — Rusty's request was
+  // specifically about the audible tick, not the physical feedback.
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  if (!tickSoundEnabled) return;
   void (async () => {
     await tickPlayer?.seekTo(0);
     tickPlayer?.play();
