@@ -103,7 +103,9 @@ export const en = {
     heading: 'Voice',
     reduceChatterLabel: 'Reduce VoiceOver chatter while performing',
     reduceChatterHint:
-      "Experimental. Tells VoiceOver an audio session is active on the lyrics screen, so it interrupts LyriCue's speech less — touch and buttons still work normally.",
+      "Experimental. Tells VoiceOver an audio session is active on the lyrics screen, so it interrupts LyriCue's speech less — touch and buttons still work normally. Swipe up to turn on, down to turn off.",
+    toggleOnActionLabel: 'Turn on',
+    toggleOffActionLabel: 'Turn off',
     speakingSpeedHint: 'Swipe up for faster, down for slower.',
     fasterActionLabel: 'Faster',
     slowerActionLabel: 'Slower',
@@ -118,12 +120,12 @@ export const en = {
     previewButtonLabel: 'Preview',
     showLowQualityLabel: 'Show lower quality voices',
     showLowQualityHint:
-      'Off by default — only shows higher quality (Enhanced or Premium) voices for each language, not the standard-quality one.',
+      'Off by default — only shows higher quality (Enhanced or Premium) voices for each language, not the standard-quality one. Swipe up to turn on, down to turn off.',
     tickSoundLabel: 'Play a beep when advancing lines',
-    tickSoundHint: 'On by default. The vibration on advance stays on either way.',
+    tickSoundHint: 'On by default. The vibration on advance stays on either way. Swipe up to turn on, down to turn off.',
     reduceHintsLabel: 'Reduce hints on controls',
     reduceHintsHint:
-      'Off by default. When on, VoiceOver skips the usage tip on every control ("swipe up for faster") and just speaks its name and value — useful once you already know how each control works.',
+      'Off by default. When on, VoiceOver skips the usage tip on every control ("swipe up for faster") and just speaks its name and value — useful once you already know how each control works. Swipe up to turn on, down to turn off.',
     loadingVoicesText: 'Loading voices…',
     noVoicesFoundText: 'No voices found on this device.',
     voiceRowAccessibilityLabel: (name: string, language: string) => `${name}, ${language}`,

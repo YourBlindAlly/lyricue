@@ -53,41 +53,58 @@ import { hintOrNone } from '../speech/reduceHintsPreference';
 type Props = NativeStackScreenProps<RootStackParamList, 'VoiceSettings'>;
 
 /**
- * A settings row that toggles a boolean, presented as ONE VoiceOver stop
- * instead of three (label, hint, switch) — wrapping the whole row in a
- * single accessible element with accessibilityRole="switch" means a swipe
- * lands on it once and a double-tap toggles it, matching how a native iOS
- * Settings row behaves. The visual Switch stays purely decorative
- * (pointerEvents="none") since the outer Pressable now owns both the tap
- * and the accessibility interaction. Fixes Rusty's report 2026-09-05 that
- * reaching either toggle on this screen took 2-3 swipes.
+ * A settings row that toggles a boolean, presented as ONE VoiceOver stop.
+ * Swipe up/down while focused (VoiceOver's adjustable-element gesture) is
+ * the primary way to flip it, matching Speed/Volume elsewhere on this
+ * screen — per Rusty's standing preference (2026-09-09 correction: even a
+ * plain on/off toggle should swipe, not just double-tap-to-switch). Tap
+ * still works too, as the sighted/no-VoiceOver fallback. The visual Switch
+ * stays purely decorative (pointerEvents="none") since the outer Pressable
+ * owns both interactions.
  */
 function ToggleRow({
   label,
   hint,
   value,
   onValueChange,
+  onLabel,
+  offLabel,
+  reduceHints,
 }: {
   label: string;
   hint: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
+  onLabel: string;
+  offLabel: string;
+  reduceHints: boolean;
 }) {
   return (
     <Pressable
       style={styles.chatterRow}
       onPress={() => onValueChange(!value)}
       accessible
-      accessibilityRole="switch"
-      accessibilityState={{ checked: value }}
+      accessibilityRole="adjustable"
       accessibilityLabel={label}
-      accessibilityHint={hint}
+      accessibilityValue={{ text: value ? onLabel : offLabel }}
+      accessibilityHint={hintOrNone(hint, reduceHints)}
+      accessibilityActions={[
+        { name: 'increment', label: onLabel },
+        { name: 'decrement', label: offLabel },
+      ]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'increment') {
+          onValueChange(true);
+        } else if (event.nativeEvent.actionName === 'decrement') {
+          onValueChange(false);
+        }
+      }}
     >
       <View style={styles.chatterTextBlock}>
         <Text style={styles.actionLabel}>{label}</Text>
         <Text style={styles.chatterHint}>{hint}</Text>
       </View>
-      <Switch value={value} onValueChange={onValueChange} pointerEvents="none" />
+      <Switch value={value} pointerEvents="none" />
     </Pressable>
   );
 }
@@ -223,22 +240,28 @@ export function VoiceSettingsScreen({ navigation }: Props) {
     [voices, selectedId]
   );
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.headerRow}>
-        <Pressable hitSlop={LINK_HIT_SLOP} onPress={onBack} accessibilityRole="button" accessibilityLabel={strings.voiceSettings.backButtonLabel}>
-          <Text style={styles.backLink}>{strings.voiceSettings.backButtonLabel}</Text>
-        </Pressable>
-        <Text style={styles.heading} accessibilityRole="header">
-          {strings.voiceSettings.heading}
-        </Text>
-      </View>
-
+  // Everything the user can adjust lives inside the SectionList's own
+  // scrollable header instead of a fixed block above it — a fixed block
+  // doesn't shrink (React Native/Yoga defaults flexShrink to 0), so every
+  // row added here in the past has eaten directly into the list's
+  // remaining flex:1 space. Adding two more toggle rows for build 7 pushed
+  // that remaining space to nothing on Rusty's device: the voice list was
+  // never actually empty, it was just squeezed down to zero visible height
+  // below a header block that had grown too tall. Routing all of this
+  // through ListHeaderComponent instead makes the whole screen one
+  // naturally scrolling column, so this class of bug can't recur no matter
+  // how many rows get added here later. Confirmed root cause 2026-09-09 by
+  // diffing the build 6 -> build 7 commit rather than guessing blind.
+  const listHeader = (
+    <>
       <ToggleRow
         label={strings.voiceSettings.reduceChatterLabel}
         hint={strings.voiceSettings.reduceChatterHint}
         value={reduceChatter}
         onValueChange={handleToggleReduceChatter}
+        onLabel={strings.voiceSettings.toggleOnActionLabel}
+        offLabel={strings.voiceSettings.toggleOffActionLabel}
+        reduceHints={reduceHints}
       />
 
       <ToggleRow
@@ -246,6 +269,9 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         hint={strings.voiceSettings.reduceHintsHint}
         value={reduceHints}
         onValueChange={handleToggleReduceHints}
+        onLabel={strings.voiceSettings.toggleOnActionLabel}
+        offLabel={strings.voiceSettings.toggleOffActionLabel}
+        reduceHints={reduceHints}
       />
 
       <View
@@ -299,6 +325,9 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         hint={strings.voiceSettings.tickSoundHint}
         value={tickSound}
         onValueChange={handleToggleTickSound}
+        onLabel={strings.voiceSettings.toggleOnActionLabel}
+        offLabel={strings.voiceSettings.toggleOffActionLabel}
+        reduceHints={reduceHints}
       />
 
       <Pressable
@@ -337,12 +366,29 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         hint={strings.voiceSettings.showLowQualityHint}
         value={showLowQuality}
         onValueChange={handleToggleShowLowQuality}
+        onLabel={strings.voiceSettings.toggleOnActionLabel}
+        offLabel={strings.voiceSettings.toggleOffActionLabel}
+        reduceHints={reduceHints}
       />
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.headerRow}>
+        <Pressable hitSlop={LINK_HIT_SLOP} onPress={onBack} accessibilityRole="button" accessibilityLabel={strings.voiceSettings.backButtonLabel}>
+          <Text style={styles.backLink}>{strings.voiceSettings.backButtonLabel}</Text>
+        </Pressable>
+        <Text style={styles.heading} accessibilityRole="header">
+          {strings.voiceSettings.heading}
+        </Text>
+      </View>
 
       <SectionList
         style={styles.sectionList}
         sections={sections}
         keyExtractor={(item) => item.identifier}
+        ListHeaderComponent={() => listHeader}
         ListEmptyComponent={
           voices === null ? (
             <Text style={styles.loadingText}>{strings.voiceSettings.loadingVoicesText}</Text>
