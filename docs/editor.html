@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LyriCue Lyric Editor</title>
+<style>
+  body {
+    max-width: 46em;
+    margin: 2em auto;
+    padding: 0 1em;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    color: #111;
+    background: #fff;
+  }
+  h1 {
+    font-size: 1.5em;
+    margin-bottom: 0.2em;
+  }
+  h2 {
+    font-size: 1.1em;
+    margin-top: 1.6em;
+  }
+  p.intro {
+    color: #333;
+  }
+  ol.steps {
+    color: #333;
+  }
+  label {
+    display: block;
+    font-weight: 600;
+    margin-top: 1.2em;
+    margin-bottom: 0.3em;
+  }
+  input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 1em;
+    padding: 0.5em;
+    border: 1px solid #999;
+    border-radius: 4px;
+  }
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95em;
+    padding: 0.6em;
+    border: 1px solid #999;
+    border-radius: 4px;
+  }
+  button {
+    font-size: 1em;
+    padding: 0.6em 1.1em;
+    margin: 0.8em 0.6em 0.8em 0;
+    border-radius: 6px;
+    border: 1px solid #1a4fd6;
+    background: #1a4fd6;
+    color: #fff;
+    cursor: pointer;
+  }
+  button.secondary {
+    background: #fff;
+    color: #1a4fd6;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  p.note {
+    color: #555;
+    font-size: 0.95em;
+  }
+  p.status {
+    font-weight: 600;
+  }
+  #resultSection {
+    margin-top: 2em;
+    padding-top: 1em;
+    border-top: 1px solid #ddd;
+  }
+  a {
+    color: #1a4fd6;
+  }
+</style>
+</head>
+<body>
+<h1>LyriCue Lyric Editor</h1>
+<p class="intro">A PC-based tool for building song files for LyriCue: find a song's lyrics or chords somewhere on the web, paste the whole page in below, and this cleans it up into a plain text or ChordPro file you can download or save straight to your LyriCue Dropbox folder.</p>
+
+<ol class="steps">
+  <li>On the page with the song, press Ctrl+A then Ctrl+C to copy everything.</li>
+  <li>Click in the big box below and press Ctrl+V to paste it.</li>
+  <li>Click "Clean Up" and review the result — this is a helper, not magic, so always check it before saving.</li>
+  <li>Fill in the title (and artist, if you have it), then download the file or save it straight to Dropbox.</li>
+</ol>
+
+<label for="rawInput">Paste the copied page here</label>
+<textarea id="rawInput" rows="14" aria-describedby="rawInputHint"></textarea>
+<p id="rawInputHint" class="note">Paste everything — navigation text, ads, and other page clutter get stripped out automatically in the next step.</p>
+
+<button id="cleanBtn" type="button">Clean Up</button>
+
+<div id="resultSection" hidden>
+  <h2>Review and save</h2>
+
+  <label for="titleField">Title</label>
+  <input id="titleField" type="text" autocomplete="off">
+
+  <label for="artistField">Artist (optional)</label>
+  <input id="artistField" type="text" autocomplete="off">
+
+  <p id="statsNote" class="note"></p>
+
+  <label for="cleanedOutput">Cleaned result — fix anything that needs it before saving</label>
+  <textarea id="cleanedOutput" rows="16"></textarea>
+  <p id="formatNote" class="note"></p>
+
+  <div>
+    <button id="downloadBtn" type="button">Download file</button>
+    <button id="dropboxConnectBtn" type="button" class="secondary">Connect Dropbox</button>
+    <button id="dropboxSaveBtn" type="button" hidden>Save to Dropbox</button>
+  </div>
+
+  <p id="statusMsg" class="status" role="status" aria-live="polite"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------------------------------------------------------------
+  // Junk-line filtering — ported near-verbatim from the LyriCue app's own
+  // src/parsing/junkLineFilter.ts, so a file built here behaves exactly
+  // like one imported straight into the app. See that file for the full
+  // reasoning behind each pattern.
+  // ---------------------------------------------------------------------
+  var URL_RE = /https?:\/\/\S+|www\.\S+/i;
+  var PERFORMANCE_NOTE_RE = /^(capo|tuning|strum(ming)?( pattern)?|drop\s?d|open tuning)\b.{0,30}$/i;
+  var TIP_RE = /^tip:/i;
+  var TAB_DIAGRAM_RE = /[a-gA-G][b#]?\|[-0-9hpsb\/\\~x]{3,}/;
+  var PIPELESS_TAB_DIAGRAM_RE = /^[a-gA-G][b#]?[-0-9hpsb\/\\~x]{5,}[a-gA-G][b#]?\s*$/;
+
+  function isJunkLine(line) {
+    var trimmed = line.trim();
+    return (
+      URL_RE.test(trimmed) ||
+      PERFORMANCE_NOTE_RE.test(trimmed) ||
+      TIP_RE.test(trimmed) ||
+      TAB_DIAGRAM_RE.test(trimmed) ||
+      PIPELESS_TAB_DIAGRAM_RE.test(trimmed)
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // General webpage-chrome stripping — new, not in the app itself, since
+  // the app only ever imports already-clean ChordPro/text files. A whole
+  // page's Ctrl+A/Ctrl+C picks up navigation, ads, comment sections, and
+  // other furniture around the actual song — this is a best-effort
+  // heuristic, not guaranteed complete or accurate, which is exactly why
+  // the cleaned result always lands in an editable box for review rather
+  // than being saved directly.
+  // ---------------------------------------------------------------------
+  var PAGE_CHROME_PATTERNS = [
+    /cookie/i,
+    /privacy policy/i,
+    /terms of (service|use)/i,
+    /all rights reserved/i,
+    /^\s*©/,
+    /copyright/i,
+    /subscribe/i,
+    /newsletter/i,
+    /follow us/i,
+    /log\s*in/i,
+    /sign\s*up/i,
+    /^register$/i,
+    /view(s|ed)?\s*:?\s*[\d,]+$/i,
+    /rating:?\s*\d/i,
+    /difficulty:?\s*(beginner|intermediate|advanced|easy|hard)/i,
+    /transpose/i,
+    /auto\s*scroll/i,
+    /font\s*size/i,
+    /chord\s*diagrams?/i,
+    /suggest\s*(a\s*)?correction/i,
+    /report\s*(this|an)\s*(error|issue|problem)/i,
+    /^advertisement$/i,
+    /^sponsored$/i,
+    /^\s*\d+\s*\/\s*\d+\s*$/,
+    /^(prev|previous|next)$/i,
+    /^back to top$/i,
+    /^print( this)?( page)?$/i,
+    /^download( pdf)?$/i,
+    /^share( this)?$/i,
+    /leave a (comment|reply)/i,
+    /\d+\s+(comments?|replies)/i,
+    /^comments?\s*\(?\d*\)?$/i,
+    /was this (helpful|useful)/i,
+    /add to (favorites|favourites|playlist|songbook)/i,
+    /related (songs|tabs|chords)/i,
+    /you (might|may) also like/i,
+    /^(home|chords|tabs|bass|ukulele|piano|drums|video|videos|search|menu)$/i,
+  ];
+  var SHORT_NUMERIC_RE = /^[\d\s.,\-\/:]{1,8}$/;
+  // A nav bar collapsed to plain text by Ctrl+A/Ctrl+C often lands as ONE
+  // line with several short menu words run together ("Home  Chords  Tabs
+  // Bass  Ukulele"), not one word per line — catches that shape too, not
+  // just an isolated single nav word.
+  var NAV_WORDS = ['home', 'chords', 'tabs', 'bass', 'ukulele', 'piano', 'drums', 'video', 'videos', 'search', 'menu', 'guitar', 'artists', 'songs'];
+
+  function isAllNavWords(trimmed) {
+    var words = trimmed.split(/\s+/).filter(function (w) { return w.length > 0; });
+    if (words.length < 2) return false;
+    for (var i = 0; i < words.length; i++) {
+      if (NAV_WORDS.indexOf(words[i].toLowerCase()) === -1) return false;
+    }
+    return true;
+  }
+
+  function looksLikePageChrome(line) {
+    var trimmed = line.trim();
+    if (trimmed.length === 0) return false;
+    if (trimmed.length <= 8 && SHORT_NUMERIC_RE.test(trimmed)) return true;
+    if (isAllNavWords(trimmed)) return true;
+    for (var i = 0; i < PAGE_CHROME_PATTERNS.length; i++) {
+      if (PAGE_CHROME_PATTERNS[i].test(trimmed)) return true;
+    }
+    return false;
+  }
+
+  // ---------------------------------------------------------------------
+  // Chord-only-line merging — ported from the app's own
+  // src/parsing/mergeChordOnlyLines.ts, which turns the common "chord
+  // sitting alone on its own line above the lyric it changes on" layout
+  // into proper inline [Chord]word brackets. Extended here to also treat
+  // a page-chrome line as "not a usable target," same as the app's
+  // existing isJunkLine check, since a chord header could otherwise land
+  // just above a stray nav/ad line instead of the real next lyric.
+  // ---------------------------------------------------------------------
+  var BRACKET_TOKEN_RE = /\[([^\]]*)\]/g;
+  var CHORD_NAME_RE = /^[A-Ga-g][#b]?(maj|min|dim|aug|sus|add)?[0-9]*m?[0-9]*(\/[A-Ga-g][#b]?)?$/;
+
+  function isChordName(token) {
+    return CHORD_NAME_RE.test(token.trim());
+  }
+
+  function isChordOnlyLine(line) {
+    var sawChord = false;
+    var stripped = line.replace(BRACKET_TOKEN_RE, function (whole, inner) {
+      if (isChordName(inner)) {
+        sawChord = true;
+        return '';
+      }
+      return whole;
+    });
+    return sawChord && stripped.trim().length === 0;
+  }
+
+  function extractChordTokens(line) {
+    var tokens = [];
+    BRACKET_TOKEN_RE.lastIndex = 0;
+    var m;
+    while ((m = BRACKET_TOKEN_RE.exec(line)) !== null) {
+      if (isChordName(m[1])) {
+        tokens.push({ name: m[1], column: m.index });
+      }
+    }
+    return tokens;
+  }
+
+  function wordSpans(line) {
+    var spans = [];
+    var re = /\S+/g;
+    var m;
+    while ((m = re.exec(line)) !== null) {
+      spans.push({ start: m.index, end: m.index + m[0].length });
+    }
+    return spans;
+  }
+
+  function nearestInsertionPoint(column, spans) {
+    if (spans.length === 0) return 0;
+    var best = spans[0].start;
+    var bestDist = Math.abs(column - best);
+    for (var i = 0; i < spans.length; i++) {
+      var span = spans[i];
+      var candidates = [span.start, span.end];
+      for (var j = 0; j < candidates.length; j++) {
+        var dist = Math.abs(column - candidates[j]);
+        if (dist < bestDist) {
+          best = candidates[j];
+          bestDist = dist;
+        }
+      }
+    }
+    return best;
+  }
+
+  function mergeChordsIntoLine(chords, lyricLine) {
+    var spans = wordSpans(lyricLine);
+    var insertions = chords.map(function (c, originalIndex) {
+      return { index: nearestInsertionPoint(c.column, spans), text: '[' + c.name + ']', originalIndex: originalIndex };
+    });
+    insertions.sort(function (a, b) {
+      return b.index - a.index || b.originalIndex - a.originalIndex;
+    });
+    var result = lyricLine;
+    for (var i = 0; i < insertions.length; i++) {
+      var ins = insertions[i];
+      result = result.slice(0, ins.index) + ins.text + result.slice(ins.index);
+    }
+    return result;
+  }
+
+  function mergeChordOnlyLines(rawText) {
+    var lines = rawText.split(/\r\n|\r|\n/);
+    var out = [];
+    var i = 0;
+    while (i < lines.length) {
+      if (isChordOnlyLine(lines[i])) {
+        var chords = extractChordTokens(lines[i]);
+        var j = i + 1;
+        while (j < lines.length && lines[j].trim().length === 0) j++;
+        var nextLine = j < lines.length ? lines[j] : null;
+        var nextIsUsable =
+          nextLine !== null &&
+          !isChordOnlyLine(nextLine) &&
+          !/^\s*\{/.test(nextLine) &&
+          !isJunkLine(nextLine.trim()) &&
+          !looksLikePageChrome(nextLine);
+        if (nextIsUsable) {
+          out.push(mergeChordsIntoLine(chords, nextLine));
+          i = j + 1;
+          continue;
+        }
+        i++;
+        continue;
+      }
+      out.push(lines[i]);
+      i++;
+    }
+    return out.join('\n');
+  }
+
+  // ---------------------------------------------------------------------
+  // Cleanup orchestration
+  // ---------------------------------------------------------------------
+  function cleanPastedText(rawText) {
+    var merged = mergeChordOnlyLines(rawText);
+    var rawLines = merged.split(/\r\n|\r|\n/);
+    var outLines = [];
+    var junkRemoved = 0;
+    var chromeRemoved = 0;
+    var lastWasBlank = true; // collapses any leading blank lines too
+    for (var i = 0; i < rawLines.length; i++) {
+      var trimmed = rawLines[i].trim();
+      if (trimmed.length === 0) {
+        if (!lastWasBlank) outLines.push('');
+        lastWasBlank = true;
+        continue;
+      }
+      if (isJunkLine(trimmed)) {
+        junkRemoved++;
+        continue;
+      }
+      if (looksLikePageChrome(trimmed)) {
+        chromeRemoved++;
+        continue;
+      }
+      outLines.push(rawLines[i].replace(/\s+$/, ''));
+      lastWasBlank = false;
+    }
+    while (outLines.length > 0 && outLines[outLines.length - 1] === '') outLines.pop();
+    return {
+      text: outLines.join('\n'),
+      junkRemoved: junkRemoved,
+      chromeRemoved: chromeRemoved,
+    };
+  }
+
+  function hasChordBrackets(text) {
+    var re = /\[([^\]]*)\]/g;
+    var m;
+    while ((m = re.exec(text)) !== null) {
+      if (isChordName(m[1])) return true;
+    }
+    return false;
+  }
+
+  function sanitizeFilename(name) {
+    return name.replace(/[\\/:*?"<>|]/g, '').trim();
+  }
+
+  // ---------------------------------------------------------------------
+  // UI wiring
+  // ---------------------------------------------------------------------
+  var rawInput = document.getElementById('rawInput');
+  var cleanBtn = document.getElementById('cleanBtn');
+  var resultSection = document.getElementById('resultSection');
+  var titleField = document.getElementById('titleField');
+  var artistField = document.getElementById('artistField');
+  var statsNote = document.getElementById('statsNote');
+  var cleanedOutput = document.getElementById('cleanedOutput');
+  var formatNote = document.getElementById('formatNote');
+  var downloadBtn = document.getElementById('downloadBtn');
+  var dropboxConnectBtn = document.getElementById('dropboxConnectBtn');
+  var dropboxSaveBtn = document.getElementById('dropboxSaveBtn');
+  var statusMsg = document.getElementById('statusMsg');
+
+  var currentIsChordPro = false;
+
+  function updateFormatNote() {
+    currentIsChordPro = hasChordBrackets(cleanedOutput.value);
+    formatNote.textContent = currentIsChordPro
+      ? 'Chords found — this will save as a .cho ChordPro file.'
+      : 'No chords found — this will save as a plain .txt lyrics file.';
+  }
+
+  cleanBtn.addEventListener('click', function () {
+    var result = cleanPastedText(rawInput.value);
+    cleanedOutput.value = result.text;
+    var parts = [];
+    if (result.chromeRemoved > 0) parts.push(result.chromeRemoved + ' page-clutter line' + (result.chromeRemoved === 1 ? '' : 's') + ' removed');
+    if (result.junkRemoved > 0) parts.push(result.junkRemoved + ' performance-note/tab line' + (result.junkRemoved === 1 ? '' : 's') + ' removed');
+    statsNote.textContent = parts.length > 0 ? parts.join(', ') + '. Review the result below before saving.' : 'Nothing obvious to remove — review the result below before saving.';
+    resultSection.hidden = false;
+    updateFormatNote();
+    titleField.focus();
+  });
+
+  cleanedOutput.addEventListener('input', updateFormatNote);
+
+  function currentFilename() {
+    var title = sanitizeFilename(titleField.value) || 'Untitled';
+    var artist = sanitizeFilename(artistField.value);
+    var base = artist ? title + ' - ' + artist : title;
+    return base + (currentIsChordPro ? '.cho' : '.txt');
+  }
+
+  function currentFileContents() {
+    if (!currentIsChordPro) return cleanedOutput.value;
+    var directives = '{title: ' + titleField.value.trim() + '}\n';
+    if (artistField.value.trim()) directives += '{artist: ' + artistField.value.trim() + '}\n';
+    return directives + '\n' + cleanedOutput.value;
+  }
+
+  downloadBtn.addEventListener('click', function () {
+    if (!titleField.value.trim()) {
+      statusMsg.textContent = 'Add a title before downloading.';
+      titleField.focus();
+      return;
+    }
+    var blob = new Blob([currentFileContents()], { type: 'text/plain;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = currentFilename();
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    statusMsg.textContent = 'Downloaded ' + currentFilename() + '.';
+  });
+
+  // ---------------------------------------------------------------------
+  // Dropbox — same App Key and scopes as the LyriCue phone app
+  // (src/cloud/dropbox/config.ts / dropboxAuth.ts), using the PKCE flow
+  // since this is a pure client-side page with no backend to hold a
+  // client secret — Dropbox's own recommended approach for this shape of
+  // app. Requires this page's exact URL to be added under this Dropbox
+  // app's OAuth 2 > Redirect URIs (a one-time setup step, same as the
+  // phone app's own redirect URI was added).
+  // ---------------------------------------------------------------------
+  var DROPBOX_APP_KEY = '0iibd4asi022p7w';
+  var REDIRECT_URI = window.location.origin + window.location.pathname;
+  var TOKEN_KEY = 'lyricue_editor_dropbox_tokens';
+  var VERIFIER_KEY = 'lyricue_editor_dropbox_verifier';
+
+  function randomString(length) {
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var out = '';
+    var randomValues = new Uint8Array(length);
+    crypto.getRandomValues(randomValues);
+    for (var i = 0; i < length; i++) out += chars[randomValues[i] % chars.length];
+    return out;
+  }
+
+  function base64UrlEncode(buffer) {
+    var bytes = new Uint8Array(buffer);
+    var binary = '';
+    for (var i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function sha256Base64Url(input) {
+    var data = new TextEncoder().encode(input);
+    return crypto.subtle.digest('SHA-256', data).then(base64UrlEncode);
+  }
+
+  function loadTokens() {
+    try {
+      var raw = localStorage.getItem(TOKEN_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveTokens(tokens) {
+    localStorage.setItem(TOKEN_KEY, JSON.stringify(tokens));
+  }
+
+  function setDropboxConnectedUi(connected) {
+    dropboxConnectBtn.hidden = connected;
+    dropboxSaveBtn.hidden = !connected;
+  }
+
+  function startDropboxConnect() {
+    var verifier = randomString(64);
+    sessionStorage.setItem(VERIFIER_KEY, verifier);
+    sha256Base64Url(verifier).then(function (challenge) {
+      var url =
+        'https://www.dropbox.com/oauth2/authorize' +
+        '?client_id=' + encodeURIComponent(DROPBOX_APP_KEY) +
+        '&response_type=code' +
+        '&code_challenge=' + encodeURIComponent(challenge) +
+        '&code_challenge_method=S256' +
+        '&token_access_type=offline' +
+        '&redirect_uri=' + encodeURIComponent(REDIRECT_URI);
+      window.location.href = url;
+    });
+  }
+
+  dropboxConnectBtn.addEventListener('click', startDropboxConnect);
+
+  function exchangeCodeForTokens(code) {
+    var verifier = sessionStorage.getItem(VERIFIER_KEY);
+    var body = new URLSearchParams({
+      code: code,
+      grant_type: 'authorization_code',
+      client_id: DROPBOX_APP_KEY,
+      code_verifier: verifier || '',
+      redirect_uri: REDIRECT_URI,
+    });
+    return fetch('https://api.dropboxapi.com/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    }).then(function (res) {
+      if (!res.ok) throw new Error('Dropbox connect failed (' + res.status + ')');
+      return res.json();
+    }).then(function (data) {
+      saveTokens({
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+      });
+      sessionStorage.removeItem(VERIFIER_KEY);
+    });
+  }
+
+  function refreshTokens(tokens) {
+    var body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: tokens.refreshToken,
+      client_id: DROPBOX_APP_KEY,
+    });
+    return fetch('https://api.dropboxapi.com/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    }).then(function (res) {
+      if (!res.ok) throw new Error('Dropbox token refresh failed (' + res.status + ')');
+      return res.json();
+    }).then(function (data) {
+      var updated = {
+        accessToken: data.access_token,
+        refreshToken: tokens.refreshToken,
+        expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+      };
+      saveTokens(updated);
+      return updated;
+    });
+  }
+
+  function getValidAccessToken() {
+    var tokens = loadTokens();
+    if (!tokens) return Promise.resolve(null);
+    if (Date.now() < tokens.expiresAt) return Promise.resolve(tokens.accessToken);
+    return refreshTokens(tokens).then(function (updated) { return updated.accessToken; }).catch(function () {
+      localStorage.removeItem(TOKEN_KEY);
+      return null;
+    });
+  }
+
+  function uploadToDropbox(path, content) {
+    return getValidAccessToken().then(function (token) {
+      if (!token) throw new Error('Not connected to Dropbox.');
+      return fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Dropbox-API-Arg': JSON.stringify({ path: path, mode: 'add', autorename: true, mute: false }),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: content,
+      });
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (body) {
+          throw new Error('Dropbox save failed (' + res.status + '): ' + body);
+        });
+      }
+      return res.json();
+    });
+  }
+
+  dropboxSaveBtn.addEventListener('click', function () {
+    if (!titleField.value.trim()) {
+      statusMsg.textContent = 'Add a title before saving.';
+      titleField.focus();
+      return;
+    }
+    statusMsg.textContent = 'Saving to Dropbox…';
+    uploadToDropbox('/' + currentFilename(), currentFileContents())
+      .then(function (data) {
+        statusMsg.textContent = 'Saved to Dropbox as ' + (data.name || currentFilename()) + '. It will show up in LyriCue’s Dropbox import screen on your phone.';
+      })
+      .catch(function (err) {
+        statusMsg.textContent = 'Could not save to Dropbox: ' + err.message;
+      });
+  });
+
+  // On load: finish an in-progress Dropbox connect if we were just
+  // redirected back with an authorization code, and reflect whether
+  // we're already connected from a previous visit (tokens persist in
+  // this browser's localStorage).
+  (function initDropboxState() {
+    var params = new URLSearchParams(window.location.search);
+    var code = params.get('code');
+    if (code) {
+      statusMsg.textContent = 'Connecting to Dropbox…';
+      exchangeCodeForTokens(code)
+        .then(function () {
+          history.replaceState(null, '', REDIRECT_URI);
+          setDropboxConnectedUi(true);
+          statusMsg.textContent = 'Connected to Dropbox.';
+        })
+        .catch(function (err) {
+          statusMsg.textContent = 'Could not connect to Dropbox: ' + err.message;
+        });
+      return;
+    }
+    setDropboxConnectedUi(!!loadTokens());
+  })();
+})();
+</script>
+</body>
+</html>
