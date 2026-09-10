@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LyriCue Setlist Builder</title>
+<style>
+  body {
+    max-width: 46em;
+    margin: 2em auto;
+    padding: 0 1em;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    color: #111;
+    background: #fff;
+  }
+  h1 {
+    font-size: 1.5em;
+    margin-bottom: 0.2em;
+  }
+  h2 {
+    font-size: 1.1em;
+    margin-top: 1.6em;
+  }
+  p.intro {
+    color: #333;
+  }
+  p.masthead {
+    font-weight: 600;
+    margin: 0 0 0.4em;
+  }
+  nav.pagelinks {
+    font-size: 0.95em;
+    margin: 0.3em 0 1.8em;
+  }
+  nav.pagelinks a {
+    margin-right: 1.2em;
+  }
+  a {
+    color: #1a4fd6;
+  }
+  label {
+    display: block;
+    font-weight: 600;
+    margin-top: 1.2em;
+    margin-bottom: 0.3em;
+  }
+  input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 1em;
+    padding: 0.5em;
+    border: 1px solid #999;
+    border-radius: 4px;
+  }
+  button {
+    font-size: 0.95em;
+    padding: 0.5em 0.9em;
+    margin: 0.4em 0.4em 0.4em 0;
+    border-radius: 6px;
+    border: 1px solid #1a4fd6;
+    background: #1a4fd6;
+    color: #fff;
+    cursor: pointer;
+  }
+  button.secondary {
+    background: #fff;
+    color: #1a4fd6;
+  }
+  button.danger {
+    background: #fff;
+    color: #b3261e;
+    border-color: #b3261e;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  ul.plain {
+    list-style: none;
+    margin: 0.6em 0;
+    padding: 0;
+  }
+  li.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8em;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 0.5em 0.8em;
+    margin-bottom: 0.5em;
+  }
+  li.row .name {
+    flex: 1;
+  }
+  li.row .actions {
+    white-space: nowrap;
+  }
+  p.note {
+    color: #555;
+    font-size: 0.95em;
+  }
+  p.status {
+    font-weight: 600;
+  }
+  section {
+    margin-top: 1.6em;
+    padding-top: 1em;
+    border-top: 1px solid #ddd;
+  }
+</style>
+</head>
+<body>
+<p class="masthead">This is LyriCue, the audio lyrics prompter.</p>
+<nav class="pagelinks" aria-label="LyriCue pages">
+<a href="about.html">About</a>
+<a href="features.html">Features</a>
+<a href="find-lyrics.html">Where to Find Lyrics</a>
+<a href="songwriters.html">For Songwriters</a>
+<a href="editor.html">Lyric Editor</a>
+<a href="setlists.html">Setlist Builder</a>
+<a href="privacy.html">Privacy Policy</a>
+</nav>
+<h1>LyriCue Setlist Builder</h1>
+<p class="intro">Build and edit setlists from a proper keyboard, instead of on the phone. Connect Dropbox, pick songs from your library in whatever order you want, and save — it shows up in LyriCue's Setlists screen right away.</p>
+
+<div id="connectSection">
+  <button id="connectBtn" type="button">Connect Dropbox</button>
+  <p id="connectStatus" class="note" role="status" aria-live="polite"></p>
+</div>
+
+<div id="mainSection" hidden>
+
+<section id="existingSection">
+  <h2>Your setlists</h2>
+  <p id="existingEmptyNote" class="note" hidden>No setlists saved yet.</p>
+  <ul id="existingList" class="plain" aria-label="Your saved setlists"></ul>
+</section>
+
+<section id="builderSection">
+  <h2 id="builderHeading">New setlist</h2>
+
+  <label for="nameField">Setlist name</label>
+  <input id="nameField" type="text" autocomplete="off">
+
+  <label for="songSearch">Find a song to add</label>
+  <input id="songSearch" type="text" autocomplete="off" aria-describedby="songSearchHint">
+  <p id="songSearchHint" class="note">Type to filter your song library below.</p>
+  <p id="songListStatus" class="note" role="status" aria-live="polite"></p>
+  <ul id="songList" class="plain" aria-label="Your song library"></ul>
+
+  <h2>This setlist</h2>
+  <p id="setlistEmptyNote" class="note">No songs added yet — find one above and add it.</p>
+  <ul id="setlistEntries" class="plain" aria-label="Songs in this setlist, in order"></ul>
+
+  <button id="saveBtn" type="button">Save to Dropbox</button>
+  <button id="newBtn" type="button" class="secondary">Start a new setlist</button>
+  <button id="deleteBtn" type="button" class="danger" hidden>Delete this setlist</button>
+</section>
+
+</div>
+
+<p id="statusMsg" class="status" role="status" aria-live="polite"></p>
+
+<script src="dropbox.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var SONG_EXTENSIONS = ['.txt', '.cho', '.crd', '.chopro', '.chord', '.pro'];
+  var SETLISTS_FOLDER = '/setlists';
+
+  function csvEscape(field) {
+    if (/[",\r\n]/.test(field)) return '"' + field.replace(/"/g, '""') + '"';
+    return field;
+  }
+
+  function csvSplitLine(line) {
+    var fields = [];
+    var current = '';
+    var inQuotes = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { current += '"'; i++; } else { inQuotes = false; }
+        } else {
+          current += ch;
+        }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        fields.push(current);
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    fields.push(current);
+    return fields;
+  }
+
+  function serializeSetlistCsv(entries) {
+    var lines = ['Title,Path'];
+    entries.forEach(function (e) {
+      lines.push([e.title, e.path].map(csvEscape).join(','));
+    });
+    return lines.join('\r\n');
+  }
+
+  function parseSetlistCsv(csv) {
+    var lines = csv.split(/\r\n|\r|\n/).filter(function (l) { return l.length > 0; });
+    if (lines.length <= 1) return [];
+    return lines.slice(1).map(function (line) {
+      var fields = csvSplitLine(line);
+      return { title: fields[0] || '', path: fields[1] || '' };
+    });
+  }
+
+  function sanitizeSetlistFilename(name) {
+    var cleaned = name.trim().replace(/[/\\:*?"<>|]/g, '').trim();
+    return (cleaned || 'Untitled Setlist') + '.csv';
+  }
+
+  function dropboxPathFor(name) {
+    return (SETLISTS_FOLDER + '/' + sanitizeSetlistFilename(name)).toLowerCase();
+  }
+
+  function titleFromFilename(name) {
+    return name.replace(/\.[^./]+$/, '');
+  }
+
+  // ---------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------
+  var allSongs = [];       // [{name, path}] from Dropbox root
+  var existingSetlists = []; // [{name, path}] from /setlists
+  var currentEntries = []; // [{title, path}] being built/edited
+  var editingExistingName = null; // non-null while editing a saved setlist (its current name)
+
+  // ---------------------------------------------------------------------
+  // DOM
+  // ---------------------------------------------------------------------
+  var connectSection = document.getElementById('connectSection');
+  var connectBtn = document.getElementById('connectBtn');
+  var connectStatus = document.getElementById('connectStatus');
+  var mainSection = document.getElementById('mainSection');
+  var existingList = document.getElementById('existingList');
+  var existingEmptyNote = document.getElementById('existingEmptyNote');
+  var builderHeading = document.getElementById('builderHeading');
+  var nameField = document.getElementById('nameField');
+  var songSearch = document.getElementById('songSearch');
+  var songListStatus = document.getElementById('songListStatus');
+  var songList = document.getElementById('songList');
+  var setlistEntries = document.getElementById('setlistEntries');
+  var setlistEmptyNote = document.getElementById('setlistEmptyNote');
+  var saveBtn = document.getElementById('saveBtn');
+  var newBtn = document.getElementById('newBtn');
+  var deleteBtn = document.getElementById('deleteBtn');
+  var statusMsg = document.getElementById('statusMsg');
+
+  connectBtn.addEventListener('click', function () {
+    window.LyriCueDropbox.startConnect();
+  });
+
+  // ---------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------
+  function renderExisting() {
+    existingList.innerHTML = '';
+    existingEmptyNote.hidden = existingSetlists.length > 0;
+    existingSetlists.forEach(function (setlist) {
+      var li = document.createElement('li');
+      li.className = 'row';
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = titleFromFilename(setlist.name);
+      var actions = document.createElement('span');
+      actions.className = 'actions';
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'secondary';
+      editBtn.textContent = 'Edit';
+      editBtn.setAttribute('aria-label', 'Edit ' + titleFromFilename(setlist.name));
+      editBtn.addEventListener('click', function () { loadSetlist(setlist); });
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'danger';
+      delBtn.textContent = 'Delete';
+      delBtn.setAttribute('aria-label', 'Delete ' + titleFromFilename(setlist.name));
+      delBtn.addEventListener('click', function () { deleteSetlist(setlist); });
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+      li.appendChild(name);
+      li.appendChild(actions);
+      existingList.appendChild(li);
+    });
+  }
+
+  function renderSongList() {
+    var query = songSearch.value.trim().toLowerCase();
+    var matches = query
+      ? allSongs.filter(function (s) { return titleFromFilename(s.name).toLowerCase().indexOf(query) !== -1; })
+      : allSongs;
+    var shown = matches.slice(0, 40);
+    songList.innerHTML = '';
+    shown.forEach(function (song) {
+      var li = document.createElement('li');
+      li.className = 'row';
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = titleFromFilename(song.name);
+      var addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.textContent = 'Add';
+      addBtn.setAttribute('aria-label', 'Add ' + titleFromFilename(song.name) + ' to this setlist');
+      addBtn.addEventListener('click', function () { addSong(song); });
+      li.appendChild(name);
+      li.appendChild(addBtn);
+      songList.appendChild(li);
+    });
+    songListStatus.textContent = query
+      ? matches.length + ' match' + (matches.length === 1 ? '' : 'es') + (matches.length > shown.length ? ' (showing first ' + shown.length + ')' : '')
+      : allSongs.length + ' song' + (allSongs.length === 1 ? '' : 's') + ' in your library' + (allSongs.length > shown.length ? ' (showing first ' + shown.length + ' — type to search)' : '');
+  }
+
+  function renderCurrentEntries() {
+    setlistEntries.innerHTML = '';
+    setlistEmptyNote.hidden = currentEntries.length > 0;
+    currentEntries.forEach(function (entry, index) {
+      var li = document.createElement('li');
+      li.className = 'row';
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = (index + 1) + '. ' + entry.title;
+      var actions = document.createElement('span');
+      actions.className = 'actions';
+
+      var upBtn = document.createElement('button');
+      upBtn.type = 'button';
+      upBtn.className = 'secondary';
+      upBtn.textContent = '↑';
+      upBtn.setAttribute('aria-label', 'Move ' + entry.title + ' up');
+      upBtn.disabled = index === 0;
+      upBtn.addEventListener('click', function () { moveEntry(index, -1); });
+
+      var downBtn = document.createElement('button');
+      downBtn.type = 'button';
+      downBtn.className = 'secondary';
+      downBtn.textContent = '↓';
+      downBtn.setAttribute('aria-label', 'Move ' + entry.title + ' down');
+      downBtn.disabled = index === currentEntries.length - 1;
+      downBtn.addEventListener('click', function () { moveEntry(index, 1); });
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'danger';
+      removeBtn.textContent = 'Remove';
+      removeBtn.setAttribute('aria-label', 'Remove ' + entry.title + ' from this setlist');
+      removeBtn.addEventListener('click', function () { removeEntry(index); });
+
+      actions.appendChild(upBtn);
+      actions.appendChild(downBtn);
+      actions.appendChild(removeBtn);
+      li.appendChild(name);
+      li.appendChild(actions);
+      setlistEntries.appendChild(li);
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------
+  function addSong(song) {
+    currentEntries.push({ title: titleFromFilename(song.name), path: song.path });
+    renderCurrentEntries();
+    statusMsg.textContent = 'Added ' + titleFromFilename(song.name) + '.';
+  }
+
+  function moveEntry(index, delta) {
+    var target = index + delta;
+    if (target < 0 || target >= currentEntries.length) return;
+    var entry = currentEntries[index];
+    currentEntries.splice(index, 1);
+    currentEntries.splice(target, 0, entry);
+    renderCurrentEntries();
+    statusMsg.textContent = 'Moved ' + entry.title + (delta < 0 ? ' up.' : ' down.');
+  }
+
+  function removeEntry(index) {
+    var entry = currentEntries[index];
+    currentEntries.splice(index, 1);
+    renderCurrentEntries();
+    statusMsg.textContent = 'Removed ' + entry.title + '.';
+  }
+
+  function startNew() {
+    currentEntries = [];
+    editingExistingName = null;
+    nameField.value = '';
+    builderHeading.textContent = 'New setlist';
+    deleteBtn.hidden = true;
+    renderCurrentEntries();
+    nameField.focus();
+  }
+
+  newBtn.addEventListener('click', startNew);
+
+  function loadSetlist(setlist) {
+    statusMsg.textContent = 'Loading ' + titleFromFilename(setlist.name) + '…';
+    window.LyriCueDropbox.downloadFile(setlist.path).then(function (csv) {
+      currentEntries = parseSetlistCsv(csv);
+      editingExistingName = titleFromFilename(setlist.name);
+      nameField.value = editingExistingName;
+      builderHeading.textContent = 'Editing: ' + editingExistingName;
+      deleteBtn.hidden = false;
+      renderCurrentEntries();
+      statusMsg.textContent = 'Loaded ' + editingExistingName + ' (' + currentEntries.length + ' songs).';
+      nameField.focus();
+    }).catch(function (err) {
+      statusMsg.textContent = 'Could not load setlist: ' + err.message;
+    });
+  }
+
+  function deleteSetlist(setlist) {
+    statusMsg.textContent = 'Deleting ' + titleFromFilename(setlist.name) + '…';
+    window.LyriCueDropbox.deleteFile(setlist.path).then(function () {
+      statusMsg.textContent = 'Deleted ' + titleFromFilename(setlist.name) + '.';
+      if (editingExistingName === titleFromFilename(setlist.name)) startNew();
+      return refreshExisting();
+    }).catch(function (err) {
+      statusMsg.textContent = 'Could not delete: ' + err.message;
+    });
+  }
+
+  saveBtn.addEventListener('click', function () {
+    var name = nameField.value.trim();
+    if (!name) {
+      statusMsg.textContent = 'Give this setlist a name before saving.';
+      nameField.focus();
+      return;
+    }
+    if (currentEntries.length === 0) {
+      statusMsg.textContent = 'Add at least one song before saving.';
+      return;
+    }
+    // Renaming an existing setlist leaves the old file behind under its
+    // old name — deleting it too would be a reasonable follow-up, but
+    // silently renaming-by-delete on every save felt riskier than leaving
+    // an extra file for Rusty to notice and clean up himself if it happens.
+    statusMsg.textContent = 'Saving to Dropbox…';
+    window.LyriCueDropbox.uploadFile(dropboxPathFor(name), serializeSetlistCsv(currentEntries), 'overwrite')
+      .then(function () {
+        statusMsg.textContent = 'Saved "' + name + '" (' + currentEntries.length + ' songs). It will show up in LyriCue on your phone.';
+        editingExistingName = name;
+        builderHeading.textContent = 'Editing: ' + name;
+        deleteBtn.hidden = false;
+        return refreshExisting();
+      })
+      .catch(function (err) {
+        statusMsg.textContent = 'Could not save: ' + err.message;
+      });
+  });
+
+  deleteBtn.addEventListener('click', function () {
+    if (!editingExistingName) return;
+    deleteSetlist({ name: editingExistingName + '.csv', path: dropboxPathFor(editingExistingName) });
+  });
+
+  songSearch.addEventListener('input', renderSongList);
+
+  // ---------------------------------------------------------------------
+  // Loading from Dropbox
+  // ---------------------------------------------------------------------
+  function refreshExisting() {
+    return window.LyriCueDropbox.listFolder(SETLISTS_FOLDER).then(function (entries) {
+      existingSetlists = entries.filter(function (e) { return !e.isFolder && /\.csv$/i.test(e.name); });
+      renderExisting();
+    });
+  }
+
+  function refreshSongs() {
+    return window.LyriCueDropbox.listFolder('').then(function (entries) {
+      allSongs = entries
+        .filter(function (e) { return !e.isFolder; })
+        .filter(function (e) {
+          var lower = e.name.toLowerCase();
+          return SONG_EXTENSIONS.some(function (ext) { return lower.endsWith(ext); });
+        })
+        .sort(function (a, b) { return a.name.localeCompare(b.name); });
+      renderSongList();
+    });
+  }
+
+  function showConnected() {
+    connectSection.hidden = true;
+    mainSection.hidden = false;
+    statusMsg.textContent = 'Loading your songs and setlists…';
+    Promise.all([refreshSongs(), refreshExisting()]).then(function () {
+      statusMsg.textContent = '';
+      startNew();
+    }).catch(function (err) {
+      statusMsg.textContent = 'Could not load from Dropbox: ' + err.message;
+    });
+  }
+
+  window.LyriCueDropbox.handleRedirectIfPresent(function (message) {
+    connectStatus.textContent = message;
+  }).then(function () {
+    if (window.LyriCueDropbox.isConnected()) {
+      showConnected();
+    }
+  });
+})();
+</script>
+</body>
+</html>

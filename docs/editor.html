@@ -106,6 +106,7 @@
 <a href="find-lyrics.html">Where to Find Lyrics</a>
 <a href="songwriters.html">For Songwriters</a>
 <a href="editor.html">Lyric Editor</a>
+<a href="setlists.html">Setlist Builder</a>
 <a href="privacy.html">Privacy Policy</a>
 </nav>
 <h1>LyriCue Lyric Editor</h1>
@@ -149,6 +150,7 @@
   <p id="statusMsg" class="status" role="status" aria-live="polite"></p>
 </div>
 
+<script src="dropbox.js"></script>
 <script>
 (function () {
   'use strict';
@@ -535,157 +537,17 @@
   });
 
   // ---------------------------------------------------------------------
-  // Dropbox — same App Key and scopes as the LyriCue phone app
-  // (src/cloud/dropbox/config.ts / dropboxAuth.ts), using the PKCE flow
-  // since this is a pure client-side page with no backend to hold a
-  // client secret — Dropbox's own recommended approach for this shape of
-  // app. Requires this page's exact URL to be added under this Dropbox
-  // app's OAuth 2 > Redirect URIs (a one-time setup step, same as the
-  // phone app's own redirect URI was added).
-  // ---------------------------------------------------------------------
-  var DROPBOX_APP_KEY = '0iibd4asi022p7w';
-  var REDIRECT_URI = window.location.origin + window.location.pathname;
-  var TOKEN_KEY = 'lyricue_editor_dropbox_tokens';
-  var VERIFIER_KEY = 'lyricue_editor_dropbox_verifier';
-
-  function randomString(length) {
-    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    var out = '';
-    var randomValues = new Uint8Array(length);
-    crypto.getRandomValues(randomValues);
-    for (var i = 0; i < length; i++) out += chars[randomValues[i] % chars.length];
-    return out;
-  }
-
-  function base64UrlEncode(buffer) {
-    var bytes = new Uint8Array(buffer);
-    var binary = '';
-    for (var i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  }
-
-  function sha256Base64Url(input) {
-    var data = new TextEncoder().encode(input);
-    return crypto.subtle.digest('SHA-256', data).then(base64UrlEncode);
-  }
-
-  function loadTokens() {
-    try {
-      var raw = localStorage.getItem(TOKEN_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function saveTokens(tokens) {
-    localStorage.setItem(TOKEN_KEY, JSON.stringify(tokens));
-  }
-
+  // Dropbox — shared connection logic lives in dropbox.js (loaded above),
+  // also used by the Setlist Builder page so connecting once carries over
+  // to both. See that file's own header comment for the OAuth details.
   function setDropboxConnectedUi(connected) {
     dropboxConnectBtn.hidden = connected;
     dropboxSaveBtn.hidden = !connected;
   }
 
-  function startDropboxConnect() {
-    var verifier = randomString(64);
-    sessionStorage.setItem(VERIFIER_KEY, verifier);
-    sha256Base64Url(verifier).then(function (challenge) {
-      var url =
-        'https://www.dropbox.com/oauth2/authorize' +
-        '?client_id=' + encodeURIComponent(DROPBOX_APP_KEY) +
-        '&response_type=code' +
-        '&code_challenge=' + encodeURIComponent(challenge) +
-        '&code_challenge_method=S256' +
-        '&token_access_type=offline' +
-        '&redirect_uri=' + encodeURIComponent(REDIRECT_URI);
-      window.location.href = url;
-    });
-  }
-
-  dropboxConnectBtn.addEventListener('click', startDropboxConnect);
-
-  function exchangeCodeForTokens(code) {
-    var verifier = sessionStorage.getItem(VERIFIER_KEY);
-    var body = new URLSearchParams({
-      code: code,
-      grant_type: 'authorization_code',
-      client_id: DROPBOX_APP_KEY,
-      code_verifier: verifier || '',
-      redirect_uri: REDIRECT_URI,
-    });
-    return fetch('https://api.dropboxapi.com/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    }).then(function (res) {
-      if (!res.ok) throw new Error('Dropbox connect failed (' + res.status + ')');
-      return res.json();
-    }).then(function (data) {
-      saveTokens({
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresAt: Date.now() + (data.expires_in - 60) * 1000,
-      });
-      sessionStorage.removeItem(VERIFIER_KEY);
-    });
-  }
-
-  function refreshTokens(tokens) {
-    var body = new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: tokens.refreshToken,
-      client_id: DROPBOX_APP_KEY,
-    });
-    return fetch('https://api.dropboxapi.com/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    }).then(function (res) {
-      if (!res.ok) throw new Error('Dropbox token refresh failed (' + res.status + ')');
-      return res.json();
-    }).then(function (data) {
-      var updated = {
-        accessToken: data.access_token,
-        refreshToken: tokens.refreshToken,
-        expiresAt: Date.now() + (data.expires_in - 60) * 1000,
-      };
-      saveTokens(updated);
-      return updated;
-    });
-  }
-
-  function getValidAccessToken() {
-    var tokens = loadTokens();
-    if (!tokens) return Promise.resolve(null);
-    if (Date.now() < tokens.expiresAt) return Promise.resolve(tokens.accessToken);
-    return refreshTokens(tokens).then(function (updated) { return updated.accessToken; }).catch(function () {
-      localStorage.removeItem(TOKEN_KEY);
-      return null;
-    });
-  }
-
-  function uploadToDropbox(path, content) {
-    return getValidAccessToken().then(function (token) {
-      if (!token) throw new Error('Not connected to Dropbox.');
-      return fetch('https://content.dropboxapi.com/2/files/upload', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Dropbox-API-Arg': JSON.stringify({ path: path, mode: 'add', autorename: true, mute: false }),
-          'Content-Type': 'application/octet-stream',
-        },
-        body: content,
-      });
-    }).then(function (res) {
-      if (!res.ok) {
-        return res.text().then(function (body) {
-          throw new Error('Dropbox save failed (' + res.status + '): ' + body);
-        });
-      }
-      return res.json();
-    });
-  }
+  dropboxConnectBtn.addEventListener('click', function () {
+    window.LyriCueDropbox.startConnect();
+  });
 
   dropboxSaveBtn.addEventListener('click', function () {
     if (!titleField.value.trim()) {
@@ -694,7 +556,7 @@
       return;
     }
     statusMsg.textContent = 'Saving to Dropbox…';
-    uploadToDropbox('/' + currentFilename(), currentFileContents())
+    window.LyriCueDropbox.uploadFile('/' + currentFilename(), currentFileContents())
       .then(function (data) {
         statusMsg.textContent = 'Saved to Dropbox as ' + (data.name || currentFilename()) + '. It will show up in LyriCue’s Dropbox import screen on your phone.';
       })
@@ -703,28 +565,11 @@
       });
   });
 
-  // On load: finish an in-progress Dropbox connect if we were just
-  // redirected back with an authorization code, and reflect whether
-  // we're already connected from a previous visit (tokens persist in
-  // this browser's localStorage).
-  (function initDropboxState() {
-    var params = new URLSearchParams(window.location.search);
-    var code = params.get('code');
-    if (code) {
-      statusMsg.textContent = 'Connecting to Dropbox…';
-      exchangeCodeForTokens(code)
-        .then(function () {
-          history.replaceState(null, '', REDIRECT_URI);
-          setDropboxConnectedUi(true);
-          statusMsg.textContent = 'Connected to Dropbox.';
-        })
-        .catch(function (err) {
-          statusMsg.textContent = 'Could not connect to Dropbox: ' + err.message;
-        });
-      return;
-    }
-    setDropboxConnectedUi(!!loadTokens());
-  })();
+  window.LyriCueDropbox.handleRedirectIfPresent(function (message) {
+    statusMsg.textContent = message;
+  }).then(function () {
+    setDropboxConnectedUi(window.LyriCueDropbox.isConnected());
+  });
 })();
 </script>
 </body>
