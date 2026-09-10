@@ -151,6 +151,8 @@ export const uk: Strings = {
     languageDetectionHeuristicLabel: 'Евристика',
     languageDetectionSwitchToAppleActionLabel: 'Перемкнути на Apple',
     languageDetectionSwitchToHeuristicActionLabel: 'Перемкнути на евристику',
+    languageVoicesLinkLabel: 'Голоси для мов',
+    languageVoicesLinkHint: 'Налаштуйте конкретний голос для окремих мов.',
     reduceHintsLabel: 'Зменшити підказки для елементів керування',
     reduceHintsHint:
       'Вимкнено за замовчуванням. Коли увімкнено, VoiceOver пропускає підказку щодо використання кожного елемента керування ("проведіть вгору, щоб пришвидшити") і просто озвучує його назву та значення — корисно, коли ви вже знаєте, як працює кожен елемент керування. Проведіть вгору, щоб увімкнути, вниз — щоб вимкнути.',
@@ -158,6 +160,25 @@ export const uk: Strings = {
     noVoicesFoundText: 'На цьому пристрої не знайдено голосів.',
     voiceRowAccessibilityLabel: (name: string, language: string) => `${name}, ${language}`,
     previewSpokenText: 'Ось як звучатиме ваш текст пісні.',
+  },
+
+  languageVoices: {
+    backButtonLabel: 'Назад',
+    heading: 'Голоси для мов',
+    introText:
+      'Оберіть конкретний голос для мови, щоб пісні, визначені або позначені цією мовою, завжди використовували його — замість того, щоб LyriCue вгадувала, який встановлений голос обрати. Більшості людей потрібно лише одна-дві мови; ви можете додати скільки завгодно.',
+    emptyText: 'Голоси для мов ще не налаштовано — для будь-якої визначеної мови автоматично обирається підходящий встановлений голос.',
+    entryAccessibilityLabel: (language: string, voice: string) => `${language}: ${voice}. Двічі торкніться, щоб змінити.`,
+    entryHint: 'Двічі торкніться, щоб змінити голос для цієї мови.',
+    removeButtonLabel: (language: string) => `Видалити ${language}`,
+    removeButtonLabel2: 'Видалити',
+    addHeading: 'Додати мову',
+    addLanguageText: 'Мова',
+    addLanguageHint: 'Проведіть вгору або вниз, щоб змінити мову, для якої додається голос.',
+    nextLanguageActionLabel: 'Наступна мова',
+    previousLanguageActionLabel: 'Попередня мова',
+    chooseVoiceButtonLabel: (language: string) => `Обрати голос для ${language}`,
+    pickerHeading: (language: string) => `Голос для ${language}`,
   },
 
   dropboxBrowse: {

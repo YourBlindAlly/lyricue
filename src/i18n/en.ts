@@ -149,6 +149,8 @@ export const en = {
     languageDetectionHeuristicLabel: 'Heuristic',
     languageDetectionSwitchToAppleActionLabel: 'Switch to Apple',
     languageDetectionSwitchToHeuristicActionLabel: 'Switch to Heuristic',
+    languageVoicesLinkLabel: 'Language Voices',
+    languageVoicesLinkHint: 'Set a specific voice for particular languages.',
     reduceHintsLabel: 'Reduce hints on controls',
     reduceHintsHint:
       'Off by default. When on, VoiceOver skips the usage tip on every control ("swipe up for faster") and just speaks its name and value — useful once you already know how each control works. Swipe up to turn on, down to turn off.',
@@ -156,6 +158,25 @@ export const en = {
     noVoicesFoundText: 'No voices found on this device.',
     voiceRowAccessibilityLabel: (name: string, language: string) => `${name}, ${language}`,
     previewSpokenText: 'This is what your lyrics will sound like.',
+  },
+
+  languageVoices: {
+    backButtonLabel: 'Back',
+    heading: 'Language Voices',
+    introText:
+      'Pick a specific voice for a language, so songs detected or tagged as that language always use it — instead of LyriCue guessing which installed voice to use. Most people only need one or two of these; you can add as many as you want.',
+    emptyText: 'No language voices set yet — any detected language just picks a reasonable installed voice automatically.',
+    entryAccessibilityLabel: (language: string, voice: string) => `${language}: ${voice}. Double tap to change.`,
+    entryHint: 'Double tap to change the voice for this language.',
+    removeButtonLabel: (language: string) => `Remove ${language}`,
+    removeButtonLabel2: 'Remove',
+    addHeading: 'Add a language',
+    addLanguageText: 'Language',
+    addLanguageHint: 'Swipe up or down to change which language you’re adding a voice for.',
+    nextLanguageActionLabel: 'Next language',
+    previousLanguageActionLabel: 'Previous language',
+    chooseVoiceButtonLabel: (language: string) => `Choose voice for ${language}`,
+    pickerHeading: (language: string) => `Voice for ${language}`,
   },
 
   dropboxBrowse: {

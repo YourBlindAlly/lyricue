@@ -15,6 +15,7 @@ export type RootStackParamList = {
   Prompt: undefined;
   PedalSettings: undefined;
   VoiceSettings: undefined;
+  LanguageVoices: undefined;
   DropboxBrowse: { path: string } | undefined;
   Setlists: undefined;
   SetlistCreator: undefined;

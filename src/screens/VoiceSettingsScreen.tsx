@@ -375,6 +375,16 @@ export function VoiceSettingsScreen({ navigation }: Props) {
       />
 
       <Pressable
+        style={styles.languageVoicesLink}
+        onPress={() => navigation.navigate('LanguageVoices')}
+        accessibilityRole="button"
+        accessibilityLabel={strings.voiceSettings.languageVoicesLinkLabel}
+        accessibilityHint={hintOrNone(strings.voiceSettings.languageVoicesLinkHint, reduceHints)}
+      >
+        <Text style={styles.actionLabel}>{strings.voiceSettings.languageVoicesLinkLabel}</Text>
+      </Pressable>
+
+      <Pressable
         style={[styles.voiceRow, selectedId === null && styles.voiceRowSelected]}
         onPress={handleUseDefault}
         accessibilityRole="button"
@@ -510,6 +520,12 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 15,
     marginTop: 12,
+  },
+  languageVoicesLink: {
+    backgroundColor: '#1c1c1c',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
   },
   chatterRow: {
     flexDirection: 'row',

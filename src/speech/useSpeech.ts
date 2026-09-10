@@ -4,6 +4,7 @@ import { loadVoicePreference } from './voicePreference';
 import { DEFAULT_VOICE_RATE, loadVoiceRate, type VoiceRate } from './voiceRatePreference';
 import { DEFAULT_VOICE_VOLUME, loadVoiceVolume, type VoiceVolume } from './voiceVolumePreference';
 import { pickVoiceForLanguage } from './voiceForLanguage';
+import { loadLanguageVoiceMap, voiceForLanguageCode, type LanguageVoiceMap } from './languageVoicePreference';
 import type { SpeechSegment } from '../parsing/wrapLines';
 
 export function useSpeech() {
@@ -18,6 +19,12 @@ export function useSpeech() {
   // just supersedes it for the one call that's speaking a song whose
   // detected/tagged language differs from the user's default voice.
   const voicesRef = useRef<Speech.Voice[]>([]);
+  // Rusty's own curated per-language voice choices (Voice Settings ->
+  // Language Voices) — checked before the auto-pick fallback below, since
+  // a deliberate choice should win even over an already-matching default
+  // voice (e.g. he might want a DIFFERENT English voice specifically for
+  // songs the detector calls English, distinct from his everyday default).
+  const languageVoiceMapRef = useRef<LanguageVoiceMap>({});
   // Every speakNow() call claims the next id and checks it's still current
   // right before actually speaking — if a newer call came in while this one
   // was awaiting Speech.stop(), this one was superseded and silently backs
@@ -44,6 +51,9 @@ export function useSpeech() {
     Speech.getAvailableVoicesAsync().then((voices) => {
       voicesRef.current = voices;
     });
+    loadLanguageVoiceMap().then((map) => {
+      languageVoiceMapRef.current = map;
+    });
     return () => {
       mounted.current = false;
       Speech.stop();
@@ -61,6 +71,7 @@ export function useSpeech() {
     voiceIdRef.current = await loadVoicePreference();
     rateRef.current = await loadVoiceRate();
     volumeRef.current = await loadVoiceVolume();
+    languageVoiceMapRef.current = await loadLanguageVoiceMap();
   }, []);
 
   /**
@@ -110,14 +121,23 @@ export function useSpeech() {
     // cross-language song) or nothing specific is selected (System default).
     let voiceIdForThisCall = voiceIdRef.current;
     if (options?.languageCode) {
-      const currentVoice = voiceIdRef.current
-        ? voicesRef.current.find((v) => v.identifier === voiceIdRef.current)
-        : undefined;
-      const currentVoiceAlreadyMatches =
-        !!currentVoice && currentVoice.language.toLowerCase().startsWith(options.languageCode.toLowerCase());
-      if (!currentVoiceAlreadyMatches) {
-        const languageVoice = pickVoiceForLanguage(voicesRef.current, options.languageCode);
-        if (languageVoice) voiceIdForThisCall = languageVoice.identifier;
+      const chosenForLanguage = voiceForLanguageCode(languageVoiceMapRef.current, options.languageCode);
+      if (chosenForLanguage) {
+        // A deliberate per-language choice (Voice Settings -> Language
+        // Voices) always wins — even over an already-matching default
+        // voice, since picking one specifically means wanting THAT voice
+        // for that language, not just "any voice that happens to match."
+        voiceIdForThisCall = chosenForLanguage;
+      } else {
+        const currentVoice = voiceIdRef.current
+          ? voicesRef.current.find((v) => v.identifier === voiceIdRef.current)
+          : undefined;
+        const currentVoiceAlreadyMatches =
+          !!currentVoice && currentVoice.language.toLowerCase().startsWith(options.languageCode.toLowerCase());
+        if (!currentVoiceAlreadyMatches) {
+          const languageVoice = pickVoiceForLanguage(voicesRef.current, options.languageCode);
+          if (languageVoice) voiceIdForThisCall = languageVoice.identifier;
+        }
       }
     }
 
