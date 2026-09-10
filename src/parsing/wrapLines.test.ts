@@ -16,11 +16,12 @@ describe('wrapLine', () => {
   });
 
   it('splits a long line on a word-count cap with no punctuation', () => {
+    // "nine" would otherwise be a trailing orphan, so the rescue folds it
+    // into the chunk before it rather than leaving it alone.
     const line = 'one two three four five six seven eight nine';
     expect(wrapLine(line, { maxWords: 4, maxSyllables: 99 })).toEqual([
       'one two three four',
-      'five six seven eight',
-      'nine',
+      'five six seven eight nine',
     ]);
   });
 
@@ -36,16 +37,25 @@ describe('wrapLine', () => {
     const line = 'I watched the sunset and I felt at home again tonight';
     // Breaks before "and" (natural pause) instead of mid-phrase at the word
     // cap; the second cut is a hard cut since no further pause exists before
-    // hitting the cap again.
+    // hitting the cap again. "tonight" would be a trailing orphan on its
+    // own, so it gets folded into the chunk before it.
     expect(wrapLine(line, { maxWords: 6, maxSyllables: 99 })).toEqual([
       'I watched the sunset',
-      'and I felt at home again',
-      'tonight',
+      'and I felt at home again tonight',
     ]);
   });
 
   it('caps on estimated syllables even when word count is fine', () => {
-    const line = 'unbelievable extraordinary imagination';
+    // A trailing short word ("indeed") keeps this from fully collapsing
+    // back to one chunk -- with only the three long words, every resulting
+    // chunk would be a singleton, and leading+trailing rescue folding both
+    // ends in would cascade all the way back to a single unsplit chunk.
+    // That's a real, accepted consequence of the orphan rescues (Rusty
+    // confirmed 2026-09-09 that a slight overflow, or here a full
+    // re-merge in a pathological case, is an acceptable trade for never
+    // stranding a lone word) -- this test just avoids hitting that
+    // extreme case so it still demonstrates syllable-based splitting.
+    const line = 'unbelievable extraordinary imagination indeed';
     const result = wrapLine(line, { maxWords: 6, maxSyllables: 6 });
     expect(result.length).toBeGreaterThan(1);
   });
@@ -99,8 +109,7 @@ describe('chunkChordedLine with chord boundaries', () => {
     const chunks = chunkChordedLine(words, { maxWords: 4, maxSyllables: 99 });
     expect(chunks.map((c) => c.map((w) => w.text).join(' '))).toEqual([
       'one two three four',
-      'five six seven eight',
-      'nine',
+      'five six seven eight nine',
     ]);
   });
 });
@@ -125,13 +134,13 @@ describe('chunkChordedLine with breakAtEveryChord', () => {
     const words = tokenizeChordedLine('[G]one two three four five six seven eight nine ten [D]eleven');
     const chunks = chunkChordedLine(words, { maxWords: 4, maxSyllables: 99, breakAtEveryChord: true });
     // No chord between "one" and "eleven", so ordinary word-cap splitting
-    // still applies within that stretch; "eleven" then still starts its own
-    // chunk since it carries a chord.
+    // still applies within that stretch; "eleven" would otherwise start its
+    // own trailing 1-word chunk since it carries a chord, so the rescue
+    // folds it into "nine ten" instead.
     expect(chunks.map((c) => c.map((w) => w.text).join(' '))).toEqual([
       'one two three four',
       'five six seven eight',
-      'nine ten',
-      'eleven',
+      'nine ten eleven',
     ]);
   });
 
@@ -140,20 +149,21 @@ describe('chunkChordedLine with breakAtEveryChord', () => {
     const chunks = chunkChordedLine(words, { maxWords: 4, maxSyllables: 99, breakAtEveryChord: true });
     expect(chunks.map((c) => c.map((w) => w.text).join(' '))).toEqual([
       'one two three four',
-      'five six seven eight',
-      'nine',
+      'five six seven eight nine',
     ]);
   });
 
   it('merges a lone leading word (before the first chord) into the next chunk', () => {
     // "'Twas grace that taught my heart to fear" -- 'Twas has no chord, so it
     // would otherwise be flushed alone the instant "grace" forces a break.
+    // "fear" is also a trailing orphan here (last word, carries the final
+    // chord) and gets rescued the same way -- see the trailing-orphan
+    // describe block below for that fix on its own.
     const words = tokenizeChordedLine("'Twas [G]grace that taught my [G7]heart to [C]fear");
     const chunks = chunkChordedLine(words, { maxWords: 99, maxSyllables: 99, breakAtEveryChord: true });
     expect(chunks.map((c) => c.map((w) => w.text).join(' '))).toEqual([
       "'Twas grace that taught my",
-      'heart to',
-      'fear',
+      'heart to fear',
     ]);
   });
 
@@ -162,13 +172,37 @@ describe('chunkChordedLine with breakAtEveryChord', () => {
     const chunks = chunkChordedLine(words, { maxWords: 99, maxSyllables: 99, breakAtEveryChord: true });
     expect(chunks[0].map((w) => w.text).join(' ')).toBe('Oh what a');
   });
+});
 
-  it('leaves trailing and middle single-word chunks alone (out of scope for this pass)', () => {
-    // "fear" ends the line alone (last word, carries the final chord) --
-    // deliberately not rescued yet, per Rusty's own narrow scoping.
-    const words = tokenizeChordedLine("'Twas [G]grace that taught my [G7]heart to [C]fear");
+describe('chunkChordedLine trailing-orphan rescue', () => {
+  it('merges a lone trailing word (the last word, carrying a chord) into the previous chunk', () => {
+    const words = tokenizeChordedLine('On the [Dm]first part of the [C6]journey');
+    const chunks = chunkChordedLine(words, { maxWords: 6, maxSyllables: 99 });
+    // Without the fix, the word cap lands right as the second chord falls on
+    // the line's very last word, stranding "journey" alone -- confirmed
+    // 2026-09-10 with this exact line from America's "Horse With No Name"
+    // (chords off, Medium length), where chord POSITION still steers
+    // wrapping even though chords aren't spoken.
+    expect(chunks.map((c) => c.map((w) => w.text).join(' '))).toEqual(['On the first part of the journey']);
+  });
+
+  it('does not merge a trailing fragment of 2 or more words', () => {
+    const words = tokenizeChordedLine('[G]In the sunshine and [D]then some more words after that');
+    const chunks = chunkChordedLine(words, { maxWords: 4, maxSyllables: 99 });
+    expect(chunks[chunks.length - 1].map((w) => w.text).join(' ').split(' ').length).toBeGreaterThan(1);
+  });
+
+  it('leaves a middle single-word chunk alone when neither the first nor last chunk is a singleton', () => {
+    // "four" sits alone between two chords, both with nothing else to their
+    // immediate other side -- a genuine middle orphan. The surrounding
+    // chunks are 3 and 4 words respectively, so neither the leading nor
+    // trailing rescue fires here to incidentally sweep it up too (unlike
+    // the "'Twas...fear" case above, where the leading rescue's own
+    // reshuffling happened to also resolve what looked like it might stay
+    // a separate middle orphan).
+    const words = tokenizeChordedLine('one two three [G]four [D]five six seven eight');
     const chunks = chunkChordedLine(words, { maxWords: 99, maxSyllables: 99, breakAtEveryChord: true });
-    expect(chunks[chunks.length - 1].map((w) => w.text).join(' ')).toBe('fear');
+    expect(chunks.some((c) => c.length === 1 && c[0].text === 'four')).toBe(true);
   });
 });
 

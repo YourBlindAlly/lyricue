@@ -106,18 +106,28 @@ export function chunkChordedLine(words: ChordedWord[], options: LineWrapOptions)
     chunks.push(chunkWords);
   }
 
-  // A lone leading word (whatever split it off -- a forced chord break, or
-  // just an early preferred-break/length-cap cut) reads as an orphan no
-  // matter what caused it, so this rescue applies unconditionally rather
-  // than only under breakAtEveryChord. Deliberately narrow for now, per
-  // Rusty's own "let's start small" scoping 2026-09-09: only the FIRST
-  // chunk is rescued, and only when it's exactly one word. Trailing or
-  // middle single-word chunks are left alone. Overflowing maxWords/
-  // maxSyllables slightly on the merged result is accepted -- avoiding a
-  // stranded single word matters more here than the length target.
+  // A lone leading or trailing word (whatever split it off -- a forced
+  // chord break, or just a preferred-break/length-cap cut landing on the
+  // last chorded word in a stretch, which can happen even with chords off
+  // entirely, since chord position is still a preferred break point
+  // regardless of whether chords get spoken) reads as an orphan no matter
+  // what caused it, so this rescue applies unconditionally rather than
+  // only under breakAtEveryChord. Confirmed 2026-09-10 with a real song
+  // (America's "Horse With No Name", chords off, Medium length) where the
+  // word cap landed right as a chord fell on the line's last word, leaving
+  // it stranded alone. Deliberately narrow to just the first and last
+  // chunk, per Rusty's own "let's start small" scoping 2026-09-09 -- a
+  // middle single-word chunk (bounded by two other chunks on both sides)
+  // is still left alone. Overflowing maxWords/maxSyllables slightly on the
+  // merged result is accepted -- avoiding a stranded single word matters
+  // more here than the length target.
   if (chunks.length > 1 && chunks[0].length === 1) {
     chunks[1] = [...chunks[0], ...chunks[1]];
     chunks.shift();
+  }
+  if (chunks.length > 1 && chunks[chunks.length - 1].length === 1) {
+    const last = chunks.pop()!;
+    chunks[chunks.length - 1] = [...chunks[chunks.length - 1], ...last];
   }
 
   return chunks;
