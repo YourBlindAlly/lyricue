@@ -96,10 +96,30 @@ export function useSpeech() {
     // user's own globally selected voice — falls back to that global voice
     // unchanged whenever no language is given, or nothing installed
     // matches it (e.g. the language's voice was never downloaded).
-    const languageVoice = options?.languageCode
-      ? pickVoiceForLanguage(voicesRef.current, options.languageCode)
-      : null;
-    const voiceIdForThisCall = languageVoice?.identifier ?? voiceIdRef.current;
+    //
+    // Real bug found live 2026-09-11: this used to run pickVoiceForLanguage
+    // unconditionally whenever ANY language was detected, including English
+    // — which meant an ordinary English song (the heuristic engine detects
+    // English confidently for most real songs) silently swapped Rusty's own
+    // chosen voice for whichever English voice pickVoiceForLanguage's own
+    // alphabetical/quality selection happened to land on, not the voice he
+    // actually picked in Voice Settings. Fix: first check whether the
+    // user's already-selected voice already speaks the detected language —
+    // if so, just keep using it, no override needed at all. Only reach for
+    // pickVoiceForLanguage when the current voice doesn't match (a real
+    // cross-language song) or nothing specific is selected (System default).
+    let voiceIdForThisCall = voiceIdRef.current;
+    if (options?.languageCode) {
+      const currentVoice = voiceIdRef.current
+        ? voicesRef.current.find((v) => v.identifier === voiceIdRef.current)
+        : undefined;
+      const currentVoiceAlreadyMatches =
+        !!currentVoice && currentVoice.language.toLowerCase().startsWith(options.languageCode.toLowerCase());
+      if (!currentVoiceAlreadyMatches) {
+        const languageVoice = pickVoiceForLanguage(voicesRef.current, options.languageCode);
+        if (languageVoice) voiceIdForThisCall = languageVoice.identifier;
+      }
+    }
 
     const speakFrom = (index: number) => {
       if (!mounted.current || requestIdRef.current !== requestId) return;
