@@ -130,11 +130,13 @@ describe('parseChordPro', () => {
     expect(result.language).toBe('pt');
   });
 
-  it('auto-detects a language when no directive is present', () => {
+  it('leaves language null when no directive is present, regardless of content', () => {
+    // Auto-detection is a runtime concern now (see resolveSongLanguage.ts),
+    // not parse-time, so parsing never auto-detects here.
     const result = parseChordPro(
-      '{title: Test}\nVocê não sabe o quanto eu te amo, então escuta essa canção\nEle e ela sempre estão juntos, e isso não é segredo pra ninguém'
+      '{title: Test}\nVocê não sabe o quanto eu te amo, então escuta essa canção'
     );
-    expect(result.language).toBe('pt');
+    expect(result.language).toBeNull();
   });
 
   it('leaves language null when nothing can be confidently detected', () => {

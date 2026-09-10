@@ -25,6 +25,9 @@ import { loadIncludeChords, saveIncludeChords } from '../parsing/chordsPreferenc
 import { loadBreakAtChords, saveBreakAtChords } from '../parsing/chordLineBreaksPreference';
 import { loadHigherPitchForChords, saveHigherPitchForChords } from '../speech/chordPitchPreference';
 import { loadRepeatFeatureEnabled } from '../pedal/repeatFeaturePreference';
+import { loadLanguageDetectionEngine, type LanguageDetectionEngine } from '../speech/languageDetectionEnginePreference';
+import { detectDominantLanguageApple } from '../speech/appleLanguageDetection';
+import { resolveSongLanguage } from '../speech/resolveSongLanguage';
 import { buildSongAnnouncement } from '../speech/songAnnouncement';
 import { wrapChordedSongLines, type LineWrapResult, type SpeechSegment } from '../parsing/wrapLines';
 import { playAdvanceFeedback, playEndOfSongFeedback, playSongChangeFeedback } from '../feedback/feedback';
@@ -56,14 +59,36 @@ export function PromptScreen({ navigation }: Props) {
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
   const { activeSong: song, activeSetlist, advanceSetlist, reduceHints } = useAppState();
   const { speakNow, speakSegments, stopImmediate, refreshVoicePreference } = useSpeech();
+  // Which language-detection engine to run (Voice Settings' "Language
+  // detection" toggle) and this song's resolved language once that engine
+  // has run. Resolution is async (the Apple engine is a native call) and
+  // re-runs whenever the song or the selected engine changes, so flipping
+  // the toggle and coming back to this screen re-detects the CURRENT song
+  // with the new engine — the whole point of making it switchable, per
+  // Rusty's request 2026-09-10 to A/B the two live.
+  const [languageDetectionEngine, setLanguageDetectionEngine] = useState<LanguageDetectionEngine>('heuristic');
+  const [resolvedLanguage, setResolvedLanguage] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!song) {
+      setResolvedLanguage(null);
+      return;
+    }
+    resolveSongLanguage(song, languageDetectionEngine, detectDominantLanguageApple).then((result) => {
+      if (!cancelled) setResolvedLanguage(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [song, languageDetectionEngine]);
   // Every displaySegments entry (the title/key announcement included) is
   // this song's own content, so it always speaks in a voice matching the
-  // song's language when one's known — the pedal/setlist announcements
-  // below (speakNow calls) are app chrome, not song content, and
-  // deliberately stay on the user's own globally selected voice.
+  // song's resolved language when one's known — the pedal/setlist
+  // announcements below (speakNow calls) are app chrome, not song content,
+  // and deliberately stay on the user's own globally selected voice.
   const speakSongSegments = useCallback(
-    (segments: SpeechSegment[]) => speakSegments(segments, { languageCode: song?.language ?? null }),
-    [speakSegments, song]
+    (segments: SpeechSegment[]) => speakSegments(segments, { languageCode: resolvedLanguage }),
+    [speakSegments, resolvedLanguage]
   );
   // React Navigation is supposed to fully unmount a screen once it's popped
   // off the stack, but Rusty found a real, reproducible case where that
@@ -101,6 +126,7 @@ export function PromptScreen({ navigation }: Props) {
     loadBreakAtChords().then(setBreakAtChords);
     loadHigherPitchForChords().then(setHigherPitchForChords);
     loadRepeatFeatureEnabled().then(setRepeatFeatureEnabled);
+    loadLanguageDetectionEngine().then(setLanguageDetectionEngine);
   }, []);
 
   // React Navigation reuses this screen's instance on goBack() rather than
@@ -117,6 +143,7 @@ export function PromptScreen({ navigation }: Props) {
       loadBreakAtChords().then(setBreakAtChords);
       loadHigherPitchForChords().then(setHigherPitchForChords);
       loadRepeatFeatureEnabled().then(setRepeatFeatureEnabled);
+      loadLanguageDetectionEngine().then(setLanguageDetectionEngine);
     });
     return unsubscribe;
   }, [navigation, refreshVoicePreference]);

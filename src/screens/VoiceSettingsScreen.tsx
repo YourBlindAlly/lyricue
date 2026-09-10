@@ -19,6 +19,10 @@ import {
   loadTickSoundEnabled,
   saveTickSoundEnabled,
 } from '../feedback/tickSoundPreference';
+import {
+  loadLanguageDetectionEngine,
+  saveLanguageDetectionEngine,
+} from '../speech/languageDetectionEnginePreference';
 import { setTickSoundEnabled } from '../feedback/feedback';
 import {
   DEFAULT_VOICE_RATE,
@@ -70,6 +74,8 @@ function ToggleRow({
   onLabel,
   offLabel,
   reduceHints,
+  stateOnLabel: stateOnLabelOverride,
+  stateOffLabel: stateOffLabelOverride,
 }: {
   label: string;
   hint: string;
@@ -78,6 +84,11 @@ function ToggleRow({
   onLabel: string;
   offLabel: string;
   reduceHints: boolean;
+  /** Overrides the generic On/Off state announcement — for a control like
+   * "Language detection" where the two states are better named than
+   * generic on/off (e.g. "Apple"/"Heuristic"). */
+  stateOnLabel?: string;
+  stateOffLabel?: string;
 }) {
   // Deliberately separate from onLabel/offLabel: those describe the ACTION
   // a swipe performs ("Turn on"/"Turn off", read as an available action),
@@ -86,8 +97,8 @@ function ToggleRow({
   // VoiceOver chatter while performing: turn off" and asked why it wasn't
   // just speaking on/off, 2026-09-09.
   const strings = useStrings();
-  const stateOnLabel = strings.voiceSettings.stateOnLabel;
-  const stateOffLabel = strings.voiceSettings.stateOffLabel;
+  const stateOnLabel = stateOnLabelOverride ?? strings.voiceSettings.stateOnLabel;
+  const stateOffLabel = stateOffLabelOverride ?? strings.voiceSettings.stateOffLabel;
   return (
     <Pressable
       style={styles.chatterRow}
@@ -126,6 +137,12 @@ export function VoiceSettingsScreen({ navigation }: Props) {
   const [reduceChatter, setReduceChatter] = useState(false);
   const [showLowQuality, setShowLowQuality] = useState(false);
   const [tickSound, setTickSound] = useState(true);
+  // Modeled as a boolean here (Apple engine on/off) even though the
+  // underlying preference is a two-value string — a plain on/off swipe
+  // toggle is the simplest accessible shape for "which of two things,"
+  // matching every other toggle on this screen, and Rusty asked for this
+  // specifically as a toggle in Voice Settings, 2026-09-10.
+  const [useAppleLanguageDetection, setUseAppleLanguageDetection] = useState(false);
   const [rate, setRate] = useState<VoiceRate>(DEFAULT_VOICE_RATE);
   const [volume, setVolume] = useState<VoiceVolume>(DEFAULT_VOICE_VOLUME);
   // English always, plus whatever other language(s) the device itself is
@@ -135,7 +152,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
 
   useEffect(() => {
     (async () => {
-      const [available, saved, chatterSetting, showLowQ, savedRate, savedVolume, savedTickSound] =
+      const [available, saved, chatterSetting, showLowQ, savedRate, savedVolume, savedTickSound, savedLanguageEngine] =
         await Promise.all([
           Speech.getAvailableVoicesAsync(),
           loadVoicePreference(),
@@ -144,6 +161,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
           loadVoiceRate(),
           loadVoiceVolume(),
           loadTickSoundEnabled(),
+          loadLanguageDetectionEngine(),
         ]);
       setVoices(available);
       setSelectedId(saved);
@@ -152,6 +170,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
       setRate(savedRate);
       setVolume(savedVolume);
       setTickSound(savedTickSound);
+      setUseAppleLanguageDetection(savedLanguageEngine === 'apple');
       setPreferredCodes(preferredLanguageCodes(Localization.getLocales()));
     })();
     return () => {
@@ -177,6 +196,11 @@ export function VoiceSettingsScreen({ navigation }: Props) {
 
   const handleToggleReduceHints = (value: boolean) => {
     void setReduceHints(value);
+  };
+
+  const handleToggleLanguageDetectionEngine = (value: boolean) => {
+    setUseAppleLanguageDetection(value);
+    void saveLanguageDetectionEngine(value ? 'apple' : 'heuristic');
   };
 
   // Swipe up/down while focused (VoiceOver's native "adjustable" gesture,
@@ -335,6 +359,18 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         onValueChange={handleToggleTickSound}
         onLabel={strings.voiceSettings.toggleOnActionLabel}
         offLabel={strings.voiceSettings.toggleOffActionLabel}
+        reduceHints={reduceHints}
+      />
+
+      <ToggleRow
+        label={strings.voiceSettings.languageDetectionLabel}
+        hint={strings.voiceSettings.languageDetectionHint}
+        value={useAppleLanguageDetection}
+        onValueChange={handleToggleLanguageDetectionEngine}
+        onLabel={strings.voiceSettings.languageDetectionSwitchToAppleActionLabel}
+        offLabel={strings.voiceSettings.languageDetectionSwitchToHeuristicActionLabel}
+        stateOnLabel={strings.voiceSettings.languageDetectionAppleLabel}
+        stateOffLabel={strings.voiceSettings.languageDetectionHeuristicLabel}
         reduceHints={reduceHints}
       />
 

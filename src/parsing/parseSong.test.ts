@@ -75,15 +75,13 @@ describe('parseSong', () => {
     expect(language).toBe('fr');
   });
 
-  it('auto-detects a language when no directive is present', () => {
+  it('leaves language null when no directive is present, regardless of content', () => {
+    // Auto-detection is a runtime concern now (see resolveSongLanguage.ts
+    // and Voice Settings' "Language detection" toggle), not parse-time, so
+    // parsing never auto-detects here even for obviously non-English text.
     const { language } = parseSong(
-      'Que bonita es la vida cuando estoy contigo\nY como me gusta bailar con esta cancion\nPorque tu eres todo lo que yo necesito, mi amor'
+      'Que bonita es la vida cuando estoy contigo\nY como me gusta bailar con esta cancion'
     );
-    expect(language).toBe('es');
-  });
-
-  it('leaves language null when nothing can be confidently detected', () => {
-    const { language } = parseSong('La la la\nNa na na');
     expect(language).toBeNull();
   });
 });

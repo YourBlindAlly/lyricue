@@ -4,7 +4,6 @@ import { tokenizeChordedLine } from './chordedWord';
 import { isJunkLine } from './junkLineFilter';
 import { mergeChordOnlyLines } from './mergeChordOnlyLines';
 import { normalizeLanguageName } from './languageDirective';
-import { detectSongLanguage } from '../speech/languageDetection';
 import type { SongLanguageCode } from '../speech/languageDetection';
 
 export type ParsedChordProSong = {
@@ -13,6 +12,7 @@ export type ParsedChordProSong = {
   lines: string[];
   chordedLines: ChordedWord[][];
   sections: SectionMarker[];
+  /** A manual {lang:}/{language:} directive, or null — see ParsedSong's language field in parseSong.ts for why auto-detection isn't done here anymore. */
   language: SongLanguageCode | null;
 };
 
@@ -148,5 +148,5 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
     }
   }
 
-  return { title, key, lines, chordedLines, sections, language: language ?? detectSongLanguage(lines) };
+  return { title, key, lines, chordedLines, sections, language };
 }

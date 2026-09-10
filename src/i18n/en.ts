@@ -142,6 +142,13 @@ export const en = {
       'Off by default — only shows higher quality (Enhanced or Premium) voices for each language, not the standard-quality one. Swipe up to turn on, down to turn off.',
     tickSoundLabel: 'Play a beep when advancing lines',
     tickSoundHint: 'On by default. The vibration on advance stays on either way. Swipe up to turn on, down to turn off.',
+    languageDetectionLabel: 'Language detection',
+    languageDetectionHint:
+      "Heuristic by default. Chooses how a song's language gets guessed for picking a matching voice. Swipe up for Apple, down for Heuristic.",
+    languageDetectionAppleLabel: 'Apple',
+    languageDetectionHeuristicLabel: 'Heuristic',
+    languageDetectionSwitchToAppleActionLabel: 'Switch to Apple',
+    languageDetectionSwitchToHeuristicActionLabel: 'Switch to Heuristic',
     reduceHintsLabel: 'Reduce hints on controls',
     reduceHintsHint:
       'Off by default. When on, VoiceOver skips the usage tip on every control ("swipe up for faster") and just speaks its name and value — useful once you already know how each control works. Swipe up to turn on, down to turn off.',

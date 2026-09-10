@@ -3,7 +3,6 @@ import type { ChordedWord } from './chordedWord';
 import { tokenizePlainLine } from './chordedWord';
 import { isJunkLine } from './junkLineFilter';
 import { matchLanguageDirective } from './languageDirective';
-import { detectSongLanguage } from '../speech/languageDetection';
 import type { SongLanguageCode } from '../speech/languageDetection';
 
 const BARE_DIVIDER = /^--+$/;
@@ -29,6 +28,14 @@ export type ParsedSong = {
   lines: string[];
   chordedLines: ChordedWord[][];
   sections: SectionMarker[];
+  /**
+   * A manual {lang: ...} override, or null if the song's text doesn't have
+   * one. Deliberately NOT auto-detected here anymore — which detection
+   * engine (or none) runs is a runtime choice (see Voice Settings'
+   * "Language detection" toggle and resolveSongLanguage.ts), not something
+   * baked into parsing/storage, so switching engines takes effect on
+   * already-saved songs too without needing to re-parse them.
+   */
   language: SongLanguageCode | null;
 };
 
@@ -68,5 +75,5 @@ export function parseSong(rawText: string): ParsedSong {
     chordedLines.push(tokenizePlainLine(trimmed));
   }
 
-  return { lines, chordedLines, sections, language: manualLanguage ?? detectSongLanguage(lines) };
+  return { lines, chordedLines, sections, language: manualLanguage };
 }
