@@ -415,6 +415,36 @@
   }
 
   // ---------------------------------------------------------------------
+  // Best-effort title/artist guessing from a web copy's own page heading,
+  // which almost always sits in the first handful of lines Ctrl+A picks
+  // up — e.g. "Wonderwall Chords by Oasis" or "Oasis - Wonderwall Tabs".
+  // A guess, not a fact: always shown in the same editable fields, so it's
+  // just as easy to fix as anything typed by hand. Not run for "Use As
+  // Typed" — that path is for a user's own lyrics, which have no site
+  // heading to find and could false-match a real line by coincidence.
+  // ---------------------------------------------------------------------
+  var TITLE_ARTIST_PATTERNS = [
+    { re: /^(.{1,80}?)\s+(?:chords?|tabs?|lyrics?)\s+by\s+(.{1,60})$/i, titleGroup: 1, artistGroup: 2 },
+    { re: /^(.{1,60}?)\s*[-–—:]\s*(.{1,80}?)\s+(?:chords?|tabs?|lyrics?)$/i, titleGroup: 2, artistGroup: 1 },
+    { re: /^(.{1,80}?)\s+by\s+(.{1,60})$/i, titleGroup: 1, artistGroup: 2 },
+  ];
+
+  function guessTitleArtist(rawText) {
+    var lines = rawText.split(/\r\n|\r|\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
+    var candidates = lines.slice(0, 15);
+    for (var i = 0; i < candidates.length; i++) {
+      for (var p = 0; p < TITLE_ARTIST_PATTERNS.length; p++) {
+        var pattern = TITLE_ARTIST_PATTERNS[p];
+        var m = candidates[i].match(pattern.re);
+        if (m) {
+          return { title: m[pattern.titleGroup].trim(), artist: m[pattern.artistGroup].trim() };
+        }
+      }
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------
   // UI wiring
   // ---------------------------------------------------------------------
   var rawInput = document.getElementById('rawInput');
@@ -446,6 +476,16 @@
     var parts = [];
     if (result.chromeRemoved > 0) parts.push(result.chromeRemoved + ' page-clutter line' + (result.chromeRemoved === 1 ? '' : 's') + ' removed');
     if (result.junkRemoved > 0) parts.push(result.junkRemoved + ' performance-note/tab line' + (result.junkRemoved === 1 ? '' : 's') + ' removed');
+    var guessed = false;
+    if (!titleField.value.trim() && !artistField.value.trim()) {
+      var guess = guessTitleArtist(rawInput.value);
+      if (guess) {
+        titleField.value = guess.title;
+        artistField.value = guess.artist;
+        guessed = true;
+      }
+    }
+    if (guessed) parts.push('title/artist guessed from the pasted page — double-check them');
     statsNote.textContent = parts.length > 0 ? parts.join(', ') + '. Review the result below before saving.' : 'Nothing obvious to remove — review the result below before saving.';
     resultSection.hidden = false;
     updateFormatNote();
