@@ -49,11 +49,18 @@ function reparse(song: Song): Song {
       chordedLines: parsed.chordedLines,
       sections: parsed.sections,
       key: song.key ?? parsed.key ?? undefined,
+      language: parsed.language ?? song.language ?? null,
     };
   }
   const parsed = parseSong(song.rawText);
   if (parsed.lines.length === 0) return song;
-  return { ...song, lines: parsed.lines, chordedLines: parsed.chordedLines, sections: parsed.sections };
+  return {
+    ...song,
+    lines: parsed.lines,
+    chordedLines: parsed.chordedLines,
+    sections: parsed.sections,
+    language: parsed.language ?? song.language ?? null,
+  };
 }
 
 /**

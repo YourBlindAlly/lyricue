@@ -40,7 +40,7 @@ describe('parseSong', () => {
   });
 
   it('handles an empty song', () => {
-    expect(parseSong('')).toEqual({ lines: [], chordedLines: [], sections: [] });
+    expect(parseSong('')).toEqual({ lines: [], chordedLines: [], sections: [], language: null });
   });
 
   it('trims surrounding whitespace on each line', () => {
@@ -60,5 +60,30 @@ describe('parseSong', () => {
         { chord: null, text: 'two' },
       ],
     ]);
+  });
+
+  it('picks up a {lang: Name} directive as a manual language override, and strips the directive line', () => {
+    const { lines, language } = parseSong('{lang: Spanish}\nUno dos tres');
+    expect(lines).toEqual(['Uno dos tres']);
+    expect(language).toBe('es');
+  });
+
+  it('lets a manual language directive override what auto-detection would otherwise guess', () => {
+    const { language } = parseSong(
+      '{lang: French}\nQue bonita es la vida cuando estoy contigo\nY como me gusta bailar con esta cancion'
+    );
+    expect(language).toBe('fr');
+  });
+
+  it('auto-detects a language when no directive is present', () => {
+    const { language } = parseSong(
+      'Que bonita es la vida cuando estoy contigo\nY como me gusta bailar con esta cancion\nPorque tu eres todo lo que yo necesito, mi amor'
+    );
+    expect(language).toBe('es');
+  });
+
+  it('leaves language null when nothing can be confidently detected', () => {
+    const { language } = parseSong('La la la\nNa na na');
+    expect(language).toBeNull();
   });
 });

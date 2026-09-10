@@ -124,4 +124,21 @@ describe('parseChordPro', () => {
       ],
     ]);
   });
+
+  it('picks up a {lang: Name} directive as a manual language override', () => {
+    const result = parseChordPro('{title: Test}\n{lang: Portuguese}\nUm dois tres');
+    expect(result.language).toBe('pt');
+  });
+
+  it('auto-detects a language when no directive is present', () => {
+    const result = parseChordPro(
+      '{title: Test}\nVocê não sabe o quanto eu te amo, então escuta essa canção\nEle e ela sempre estão juntos, e isso não é segredo pra ninguém'
+    );
+    expect(result.language).toBe('pt');
+  });
+
+  it('leaves language null when nothing can be confidently detected', () => {
+    const result = parseChordPro('{title: Test}\n[G]La la la');
+    expect(result.language).toBeNull();
+  });
 });

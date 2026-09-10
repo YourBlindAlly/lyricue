@@ -3,6 +3,7 @@ import * as Speech from 'expo-speech';
 import { loadVoicePreference } from './voicePreference';
 import { DEFAULT_VOICE_RATE, loadVoiceRate, type VoiceRate } from './voiceRatePreference';
 import { DEFAULT_VOICE_VOLUME, loadVoiceVolume, type VoiceVolume } from './voiceVolumePreference';
+import { pickVoiceForLanguage } from './voiceForLanguage';
 import type { SpeechSegment } from '../parsing/wrapLines';
 
 export function useSpeech() {
@@ -11,6 +12,12 @@ export function useSpeech() {
   const voiceIdRef = useRef<string | null>(null);
   const rateRef = useRef<VoiceRate>(DEFAULT_VOICE_RATE);
   const volumeRef = useRef<VoiceVolume>(DEFAULT_VOICE_VOLUME);
+  // Every installed voice, loaded once and used only to auto-pick a
+  // per-song voice match (see speakSegments' languageCode option) — never
+  // overwrites the user's own globally selected voice (voiceIdRef above),
+  // just supersedes it for the one call that's speaking a song whose
+  // detected/tagged language differs from the user's default voice.
+  const voicesRef = useRef<Speech.Voice[]>([]);
   // Every speakNow() call claims the next id and checks it's still current
   // right before actually speaking — if a newer call came in while this one
   // was awaiting Speech.stop(), this one was superseded and silently backs
@@ -33,6 +40,9 @@ export function useSpeech() {
     });
     loadVoiceVolume().then((volume) => {
       volumeRef.current = volume;
+    });
+    Speech.getAvailableVoicesAsync().then((voices) => {
+      voicesRef.current = voices;
     });
     return () => {
       mounted.current = false;
@@ -79,8 +89,17 @@ export function useSpeech() {
    * mid-sequence — each step re-checks the request id before speaking,
    * exactly like the single-segment case did.
    */
-  const speakSegments = useCallback((segments: SpeechSegment[]) => {
+  const speakSegments = useCallback((segments: SpeechSegment[], options?: { languageCode?: string | null }) => {
     const requestId = ++requestIdRef.current;
+    // A song-specific language (manual {lang:} tag or auto-detected) picks
+    // a matching installed voice for just this call, without touching the
+    // user's own globally selected voice — falls back to that global voice
+    // unchanged whenever no language is given, or nothing installed
+    // matches it (e.g. the language's voice was never downloaded).
+    const languageVoice = options?.languageCode
+      ? pickVoiceForLanguage(voicesRef.current, options.languageCode)
+      : null;
+    const voiceIdForThisCall = languageVoice?.identifier ?? voiceIdRef.current;
 
     const speakFrom = (index: number) => {
       if (!mounted.current || requestIdRef.current !== requestId) return;
@@ -91,7 +110,7 @@ export function useSpeech() {
       const segment = segments[index];
       const isLast = index === segments.length - 1;
       Speech.speak(segment.text, {
-        voice: voiceIdRef.current ?? undefined,
+        voice: voiceIdForThisCall ?? undefined,
         rate: rateRef.current,
         volume: volumeRef.current,
         pitch: segment.pitch ?? 1.0,

@@ -56,6 +56,15 @@ export function PromptScreen({ navigation }: Props) {
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
   const { activeSong: song, activeSetlist, advanceSetlist, reduceHints } = useAppState();
   const { speakNow, speakSegments, stopImmediate, refreshVoicePreference } = useSpeech();
+  // Every displaySegments entry (the title/key announcement included) is
+  // this song's own content, so it always speaks in a voice matching the
+  // song's language when one's known — the pedal/setlist announcements
+  // below (speakNow calls) are app chrome, not song content, and
+  // deliberately stay on the user's own globally selected voice.
+  const speakSongSegments = useCallback(
+    (segments: SpeechSegment[]) => speakSegments(segments, { languageCode: song?.language ?? null }),
+    [speakSegments, song]
+  );
   // React Navigation is supposed to fully unmount a screen once it's popped
   // off the stack, but Rusty found a real, reproducible case where that
   // doesn't happen cleanly: loading N different songs in a row caused each
@@ -280,12 +289,12 @@ export function PromptScreen({ navigation }: Props) {
       setlistJumpPendingRef.current = false;
       setCurrentIndex(0);
       if (displaySegments.length > 0) {
-        speakSegments(displaySegments[0]);
+        speakSongSegments(displaySegments[0]);
       }
     } else {
       setCurrentIndex(-1);
     }
-  }, [displaySegments, speakSegments]);
+  }, [displaySegments, speakSongSegments]);
 
   useEffect(() => {
     return () => stopImmediate();
@@ -305,7 +314,7 @@ export function PromptScreen({ navigation }: Props) {
     const resolution = repeatFeatureEnabled ? repeatControllerRef.current.resolveNext() : 'navigate';
     if (resolution === 'repeat' && currentIndex >= 0) {
       playAdvanceFeedback();
-      speakSegments(displaySegments[currentIndex]);
+      speakSongSegments(displaySegments[currentIndex]);
       return;
     }
     if (currentIndex >= displayLines.length - 1) {
@@ -316,8 +325,8 @@ export function PromptScreen({ navigation }: Props) {
     const nextIndex = currentIndex + 1;
     setCurrentIndex(nextIndex);
     playAdvanceFeedback();
-    speakSegments(displaySegments[nextIndex]);
-  }, [currentIndex, displayLines, displaySegments, repeatFeatureEnabled, speakSegments, stopImmediate]);
+    speakSongSegments(displaySegments[nextIndex]);
+  }, [currentIndex, displayLines, displaySegments, repeatFeatureEnabled, speakSongSegments, stopImmediate]);
 
   const goPrevious = useCallback(() => {
     // currentIndex === -1 means nothing has been spoken yet — nothing to go
@@ -328,14 +337,14 @@ export function PromptScreen({ navigation }: Props) {
     const resolution = repeatFeatureEnabled ? repeatControllerRef.current.resolveBack() : 'navigate';
     if (resolution === 'repeat') {
       playAdvanceFeedback();
-      speakSegments(displaySegments[currentIndex]);
+      speakSongSegments(displaySegments[currentIndex]);
       return;
     }
     const prevIndex = Math.max(0, currentIndex - 1);
     setCurrentIndex(prevIndex);
     playAdvanceFeedback();
-    speakSegments(displaySegments[prevIndex]);
-  }, [currentIndex, displayLines, displaySegments, repeatFeatureEnabled, speakSegments]);
+    speakSongSegments(displaySegments[prevIndex]);
+  }, [currentIndex, displayLines, displaySegments, repeatFeatureEnabled, speakSongSegments]);
 
   // Shared by the pedal's double-press, the on-screen song-corner buttons,
   // and the adjustable "song N of M" text below — every trigger for a
@@ -394,9 +403,9 @@ export function PromptScreen({ navigation }: Props) {
 
   const resumeCurrentLine = useCallback(() => {
     if (isFocusedRef.current && currentIndex >= 0 && displaySegments.length > 0) {
-      speakSegments(displaySegments[currentIndex]);
+      speakSongSegments(displaySegments[currentIndex]);
     }
-  }, [currentIndex, displaySegments, speakSegments]);
+  }, [currentIndex, displaySegments, speakSongSegments]);
   useAudioInterruptionResume(resumeCurrentLine);
 
   const flingLeft = Gesture.Fling()

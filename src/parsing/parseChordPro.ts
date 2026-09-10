@@ -3,6 +3,9 @@ import type { ChordedWord } from './chordedWord';
 import { tokenizeChordedLine } from './chordedWord';
 import { isJunkLine } from './junkLineFilter';
 import { mergeChordOnlyLines } from './mergeChordOnlyLines';
+import { normalizeLanguageName } from './languageDirective';
+import { detectSongLanguage } from '../speech/languageDetection';
+import type { SongLanguageCode } from '../speech/languageDetection';
 
 export type ParsedChordProSong = {
   title: string | null;
@@ -10,6 +13,7 @@ export type ParsedChordProSong = {
   lines: string[];
   chordedLines: ChordedWord[][];
   sections: SectionMarker[];
+  language: SongLanguageCode | null;
 };
 
 type ContentDropPair = { start: string[]; end: string[] };
@@ -36,6 +40,7 @@ const SECTION_STARTS: { names: string[]; label: string }[] = [
 
 const TITLE_NAMES = ['title', 't'];
 const KEY_NAMES = ['key'];
+const LANGUAGE_NAMES = ['lang', 'language'];
 
 // Captures the directive name (up to the first ':' or '}') and an optional
 // argument (everything between the first ':' and the final '}', so an
@@ -62,6 +67,7 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
   const sections: SectionMarker[] = [];
   let title: string | null = null;
   let key: string | null = null;
+  let language: SongLanguageCode | null = null;
   // Which end-directive names would close the content-drop block currently
   // in progress, or null when not inside one. Only one can be active at a
   // time — ChordPro's drop environments don't nest.
@@ -102,6 +108,11 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
         key = arg || key;
         continue;
       }
+      if (LANGUAGE_NAMES.includes(name)) {
+        const normalized = normalizeLanguageName(arg);
+        if (normalized) language = normalized;
+        continue;
+      }
       if (name === 'meta') {
         // {meta: key C} is the spec's alternative form of {key: C}.
         const metaKeyMatch = arg.match(/^key\s+(.+)$/i);
@@ -137,5 +148,5 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
     }
   }
 
-  return { title, key, lines, chordedLines, sections };
+  return { title, key, lines, chordedLines, sections, language: language ?? detectSongLanguage(lines) };
 }

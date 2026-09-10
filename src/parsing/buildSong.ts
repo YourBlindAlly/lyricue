@@ -2,6 +2,7 @@ import { parseSong } from './parseSong';
 import { parseChordPro } from './parseChordPro';
 import type { Song, SongSource, SectionMarker } from '../types';
 import type { ChordedWord } from './chordedWord';
+import type { SongLanguageCode } from '../speech/languageDetection';
 
 export const CHORDPRO_EXTENSIONS = ['.cho', '.crd', '.chopro', '.chord', '.pro'];
 
@@ -16,6 +17,7 @@ function assemble(
   sections: SectionMarker[],
   title: string,
   key: string | undefined,
+  language: SongLanguageCode | null,
   source: SongSource
 ): Song | null {
   if (lines.length === 0) {
@@ -25,6 +27,7 @@ function assemble(
     id: makeId(),
     title,
     key,
+    language,
     rawText,
     lines,
     chordedLines,
@@ -35,9 +38,9 @@ function assemble(
 }
 
 export function buildSong(rawText: string, title: string | undefined, source: SongSource): Song | null {
-  const { lines, chordedLines, sections } = parseSong(rawText);
+  const { lines, chordedLines, sections, language } = parseSong(rawText);
   const resolvedTitle = title?.trim() || lines[0] || '';
-  return assemble(rawText, lines, chordedLines, sections, resolvedTitle, undefined, source);
+  return assemble(rawText, lines, chordedLines, sections, resolvedTitle, undefined, language, source);
 }
 
 export function buildChordProSong(
@@ -45,9 +48,9 @@ export function buildChordProSong(
   fallbackTitle: string,
   source: SongSource
 ): Song | null {
-  const { title, key, lines, chordedLines, sections } = parseChordPro(rawText);
+  const { title, key, lines, chordedLines, sections, language } = parseChordPro(rawText);
   const resolvedTitle = title?.trim() || fallbackTitle.trim() || lines[0] || '';
-  return assemble(rawText, lines, chordedLines, sections, resolvedTitle, key ?? undefined, source);
+  return assemble(rawText, lines, chordedLines, sections, resolvedTitle, key ?? undefined, language, source);
 }
 
 function extensionOf(fileName: string): string {
