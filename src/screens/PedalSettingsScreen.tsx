@@ -13,11 +13,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PedalSettings'>;
 
 /**
  * One VoiceOver stop, swipe-adjustable + tap fallback -- the same pattern
- * VoiceSettingsScreen's toggles use, per the standing rule that every new
+ * VoiceSettingsScreen's toggles use, per the standing rule that every
  * toggle defaults to swipe as the primary interaction (confirmed 2026-09-09
  * that this applies to plain on/off controls too, not just multi-state
- * ones). Not retrofitted onto the existing "Alert on disconnect" toggle
- * below, which predates that rule and wasn't part of this request.
+ * ones).
  */
 function ToggleRow({
   label,
@@ -159,10 +158,16 @@ export function PedalSettingsScreen({ navigation }: Props) {
         </View>
       ))}
 
-      <View style={styles.toggleRow}>
-        <Text style={styles.actionLabel}>{strings.pedalSettings.alertOnDisconnectLabel}</Text>
-        <Switch value={alertOnDisconnect} onValueChange={setAlertOnDisconnect} />
-      </View>
+      <ToggleRow
+        label={strings.pedalSettings.alertOnDisconnectLabel}
+        hint={strings.pedalSettings.alertOnDisconnectHint}
+        value={alertOnDisconnect}
+        onValueChange={setAlertOnDisconnect}
+        onLabel={strings.pedalSettings.alertOnDisconnectOnActionLabel}
+        offLabel={strings.pedalSettings.alertOnDisconnectOffActionLabel}
+        stateOnLabel={strings.pedalSettings.alertOnDisconnectStateOnLabel}
+        stateOffLabel={strings.pedalSettings.alertOnDisconnectStateOffLabel}
+      />
 
       <ToggleRow
         label={strings.pedalSettings.repeatFeatureLabel}

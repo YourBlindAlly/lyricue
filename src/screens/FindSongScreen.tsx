@@ -105,15 +105,37 @@ export function FindSongScreen({ navigation }: Props) {
             editable={!isSearching}
           />
 
-          <View style={styles.chordsRow}>
+          <Pressable
+            style={styles.chordsRow}
+            onPress={() => {
+              if (!isSearching) setIncludeChords((current) => !current);
+            }}
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel={strings.findSong.includeChordsLabel}
+            accessibilityValue={{
+              text: includeChords
+                ? strings.findSong.includeChordsStateOnLabel
+                : strings.findSong.includeChordsStateOffLabel,
+            }}
+            accessibilityHint={strings.findSong.includeChordsHint}
+            accessibilityState={{ disabled: isSearching }}
+            accessibilityActions={[
+              { name: 'increment', label: strings.findSong.includeChordsOnActionLabel },
+              { name: 'decrement', label: strings.findSong.includeChordsOffActionLabel },
+            ]}
+            onAccessibilityAction={(event) => {
+              if (isSearching) return;
+              if (event.nativeEvent.actionName === 'increment') {
+                setIncludeChords(true);
+              } else if (event.nativeEvent.actionName === 'decrement') {
+                setIncludeChords(false);
+              }
+            }}
+          >
             <Text style={styles.chordsLabel}>{strings.findSong.includeChordsLabel}</Text>
-            <Switch
-              value={includeChords}
-              onValueChange={setIncludeChords}
-              accessibilityLabel={strings.findSong.includeChordsLabel}
-              disabled={isSearching}
-            />
-          </View>
+            <Switch value={includeChords} pointerEvents="none" />
+          </Pressable>
 
           <Pressable
             style={[styles.searchButton, !canSearch && styles.searchButtonDisabled]}
