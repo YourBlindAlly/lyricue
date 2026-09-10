@@ -109,20 +109,21 @@
 <a href="privacy.html">Privacy Policy</a>
 </nav>
 <h1>LyriCue Lyric Editor</h1>
-<p class="intro">A PC-based tool for building song files for LyriCue: find a song's lyrics or chords somewhere on the web, paste the whole page in below, and this cleans it up into a plain text or ChordPro file you can download or save straight to your LyriCue Dropbox folder.</p>
+<p class="intro">A PC-based tool for building song files for LyriCue: paste in a song from the web (a whole copied page, cleaned up automatically) or your own lyrics as you're writing them, and either way get a plain text or ChordPro file you can download or save straight to your LyriCue Dropbox folder.</p>
 
 <ol class="steps">
-  <li>On the page with the song, press Ctrl+A then Ctrl+C to copy everything.</li>
-  <li>Click in the big box below and press Ctrl+V to paste it.</li>
-  <li>Click "Clean Up" and review the result — this is a helper, not magic, so always check it before saving.</li>
+  <li>Paste the copied page below, or type/paste your own lyrics directly.</li>
+  <li>Click "Clean Up" if you pasted a whole webpage — it strips out navigation, ads, and other page clutter. If it's your own lyrics with nothing to clean, click "Use As Typed" instead to skip straight to saving.</li>
+  <li>Either way, review the result before saving — cleanup is a helper, not magic.</li>
   <li>Fill in the title (and artist, if you have it), then download the file or save it straight to Dropbox.</li>
 </ol>
 
-<label for="rawInput">Paste the copied page here</label>
+<label for="rawInput">Paste a copied page, or type/paste your own lyrics here</label>
 <textarea id="rawInput" rows="14" aria-describedby="rawInputHint"></textarea>
-<p id="rawInputHint" class="note">Paste everything — navigation text, ads, and other page clutter get stripped out automatically in the next step.</p>
+<p id="rawInputHint" class="note">"Clean Up" strips out navigation, ads, and other page clutter — use it for something copied from a website. "Use As Typed" skips that and takes it exactly as it is — use it for your own lyrics.</p>
 
 <button id="cleanBtn" type="button">Clean Up</button>
+<button id="useAsTypedBtn" type="button" class="secondary">Use As Typed</button>
 
 <div id="resultSection" hidden>
   <h2>Review and save</h2>
@@ -418,6 +419,7 @@
   // ---------------------------------------------------------------------
   var rawInput = document.getElementById('rawInput');
   var cleanBtn = document.getElementById('cleanBtn');
+  var useAsTypedBtn = document.getElementById('useAsTypedBtn');
   var resultSection = document.getElementById('resultSection');
   var titleField = document.getElementById('titleField');
   var artistField = document.getElementById('artistField');
@@ -445,6 +447,14 @@
     if (result.chromeRemoved > 0) parts.push(result.chromeRemoved + ' page-clutter line' + (result.chromeRemoved === 1 ? '' : 's') + ' removed');
     if (result.junkRemoved > 0) parts.push(result.junkRemoved + ' performance-note/tab line' + (result.junkRemoved === 1 ? '' : 's') + ' removed');
     statsNote.textContent = parts.length > 0 ? parts.join(', ') + '. Review the result below before saving.' : 'Nothing obvious to remove — review the result below before saving.';
+    resultSection.hidden = false;
+    updateFormatNote();
+    titleField.focus();
+  });
+
+  useAsTypedBtn.addEventListener('click', function () {
+    cleanedOutput.value = rawInput.value.replace(/[ \t]+$/gm, '');
+    statsNote.textContent = 'Used exactly as typed, no cleanup applied. Review the result below before saving.';
     resultSection.hidden = false;
     updateFormatNote();
     titleField.focus();
