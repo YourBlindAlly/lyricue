@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -13,7 +13,7 @@ import {
   saveLibrarySortMode,
   SORT_MODE_LABEL,
 } from '../library/librarySortPreference';
-import { sortLibraryForDisplay } from '../library/sortLibrary';
+import { artistFor, sortLibraryForDisplay } from '../library/sortLibrary';
 import { hintOrNone } from '../speech/reduceHintsPreference';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
@@ -95,6 +95,7 @@ export function LibraryScreen({ navigation }: Props) {
   const { library, isLibraryLoaded, loadSong, removeFromLibrary, reduceHints } = useAppState();
   const [isImporting, setIsImporting] = useState(false);
   const [sortMode, setSortMode] = useState(DEFAULT_SORT_MODE);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadLibrarySortMode().then(setSortMode);
@@ -119,6 +120,21 @@ export function LibraryScreen({ navigation }: Props) {
     () => sortLibraryForDisplay(library, sortMode),
     [library, sortMode]
   );
+
+  // Filters the already-sorted list rather than re-deriving order, so
+  // typing a search never changes result ordering out from under you —
+  // it just narrows the same list down. Matches on title always; artist
+  // only when one can be extracted (Dropbox-sourced songs named "Title -
+  // Artist", same helper the artist sort mode already uses).
+  const filteredLibrary = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return sortedLibrary;
+    return sortedLibrary.filter((song) => {
+      if (song.title.toLowerCase().includes(query)) return true;
+      const artist = artistFor(song);
+      return artist ? artist.toLowerCase().includes(query) : false;
+    });
+  }, [sortedLibrary, searchQuery]);
 
   // Plain navigate (not popTo) is correct here specifically because Library
   // is always the root screen when this fires — every "return to Library"
@@ -273,11 +289,33 @@ export function LibraryScreen({ navigation }: Props) {
         </Pressable>
       ) : null}
 
+      {isLibraryLoaded && library.length > 0 ? (
+        <>
+          <Text style={styles.searchLabel} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {strings.library.searchLabel}
+          </Text>
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={strings.library.searchPlaceholder}
+            placeholderTextColor="#777"
+            accessibilityLabel={strings.library.searchAccessibilityLabel}
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+        </>
+      ) : null}
+
       {isLibraryLoaded && library.length === 0 ? (
         <Text style={styles.emptyText}>{strings.library.emptyLibraryText}</Text>
+      ) : isLibraryLoaded && searchQuery.trim() && filteredLibrary.length === 0 ? (
+        <Text style={styles.emptyText}>{strings.library.noSearchResultsText(searchQuery.trim())}</Text>
       ) : (
         <FlatList
-          data={sortedLibrary}
+          data={filteredLibrary}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <SongRow
@@ -353,6 +391,19 @@ const styles = StyleSheet.create({
     color: '#4f8cff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  searchLabel: {
+    color: '#bbb',
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  searchInput: {
+    backgroundColor: '#1c1c1c',
+    color: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 12,
   },
   songRow: {
     backgroundColor: '#1c1c1c',

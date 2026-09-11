@@ -2,7 +2,7 @@ import type { Song } from '../types';
 import { extractArtistFromPath } from './artistFromFilename';
 import type { LibrarySortMode } from './librarySortPreference';
 
-function artistFor(song: Song): string | null {
+export function artistFor(song: Song): string | null {
   if (song.source.type !== 'dropbox') {
     return null;
   }
