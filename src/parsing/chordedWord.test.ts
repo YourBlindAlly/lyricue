@@ -49,6 +49,23 @@ describe('tokenizeChordedLine', () => {
     expect(tokenizeChordedLine('won[C]der[D]ful')).toEqual([{ chord: 'C', text: 'wonderful' }]);
   });
 
+  it('strips a hyphen marking the syllable break before a mid-word chord, not just the bracket', () => {
+    // Real bug found live 2026-09-11 — a common chart convention hyphenates
+    // a word at the syllable where the chord lands (e.g. "Navi-[F]dad").
+    // The hyphen is a visual chord-placement aid, not part of the word;
+    // left in, it read as "wonder-ful" (two words with a pause) instead of
+    // "wonderful" once the bracket was stripped for chords-off playback.
+    expect(tokenizeChordedLine('It was won-[C]derful')).toEqual([
+      { chord: null, text: 'It' },
+      { chord: null, text: 'was' },
+      { chord: 'C', text: 'wonderful' },
+    ]);
+  });
+
+  it('strips a hyphen before each of two chords glued mid-word', () => {
+    expect(tokenizeChordedLine('won-[C]der-[D]ful')).toEqual([{ chord: 'C', text: 'wonderful' }]);
+  });
+
   it('keeps a different chord glued to the end of a word instead of dropping it, attaching it forward to the next word', () => {
     // Found live 2026-09-04 via the new chord-line-merge feature — a chord
     // glued to a word's front and a DIFFERENT chord glued to its back (the

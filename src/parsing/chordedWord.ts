@@ -29,6 +29,14 @@ type RawToken = { kind: 'chord' | 'word'; text: string; start: number; end: numb
  * is not the same case: the second chord doesn't belong to that word, it
  * belongs to whatever comes next, and must not be silently dropped just
  * because the word already has a chord from its front.
+ *
+ * A common chart convention marks exactly where mid-word a chord lands by
+ * hyphenating the word at that syllable (e.g. "Navi-[F]dad") — real bug
+ * found live 2026-09-11 (Rusty heard a strange pause on "Navidad" with
+ * chords off): the hyphen isn't part of the word, just a visual chord-
+ * placement aid, but the reassembly above was keeping it literally
+ * ("Navi-dad"), and a mid-word hyphen makes some TTS engines pause as if
+ * it were two words. Stripped from each fragment as it's reassembled.
  */
 export function tokenizeChordedLine(rawLine: string): ChordedWord[] {
   const tokens: RawToken[] = [];
@@ -85,7 +93,7 @@ export function tokenizeChordedLine(rawLine: string): ChordedWord[] {
 
     if (gluedToPrevWord) {
       const prevWord = words.pop()!;
-      textParts.push(prevWord.text);
+      textParts.push(prevWord.text.replace(/-$/, ''));
       chordForWord = prevWord.chord ?? chordForWord;
     }
 
@@ -93,7 +101,7 @@ export function tokenizeChordedLine(rawLine: string): ChordedWord[] {
     let cursor = token.end;
     while (j < tokens.length && tokens[j].start === cursor) {
       if (tokens[j].kind === 'word') {
-        textParts.push(tokens[j].text);
+        textParts.push(tokens[j].text.replace(/-$/, ''));
         cursor = tokens[j].end;
         j += 1;
       } else if (!chordForWord && tokens[j].text) {
