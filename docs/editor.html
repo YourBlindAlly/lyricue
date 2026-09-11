@@ -96,6 +96,31 @@
   a {
     color: #1a4fd6;
   }
+  ul.plain {
+    list-style: none;
+    margin: 0.6em 0;
+    padding: 0;
+    max-height: 16em;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  ul.plain li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8em;
+    padding: 0.5em 0.7em;
+    border-bottom: 1px solid #eee;
+  }
+  ul.plain li:last-child {
+    border-bottom: none;
+  }
+  #openFromDropboxSection {
+    margin-bottom: 1.4em;
+    padding-bottom: 1.2em;
+    border-bottom: 1px solid #ddd;
+  }
 </style>
 </head>
 <body>
@@ -118,6 +143,19 @@
   <li>Either way, review the result before saving — cleanup is a helper, not magic.</li>
   <li>Fill in the title (and artist, if you have it), then download the file or save it straight to Dropbox.</li>
 </ol>
+
+<div id="openFromDropboxSection">
+  <p class="note">Editing an existing song instead? Open it from Dropbox and your changes will save back to that same file.</p>
+  <button id="dropboxConnectTopBtn" type="button" class="secondary" hidden>Connect Dropbox</button>
+  <button id="dropboxOpenBtn" type="button" class="secondary" hidden>Open a song from Dropbox to edit</button>
+  <div id="dropboxFilePicker" hidden>
+    <label for="dropboxFileSearch">Find a song</label>
+    <input id="dropboxFileSearch" type="text" autocomplete="off">
+    <p id="dropboxFileStatus" class="note" role="status" aria-live="polite"></p>
+    <ul id="dropboxFileUl" class="plain" aria-label="Your Dropbox songs"></ul>
+    <button id="dropboxFileCancelBtn" type="button" class="secondary">Cancel</button>
+  </div>
+</div>
 
 <label for="rawInput">Paste a copied page, or type/paste your own lyrics here</label>
 <textarea id="rawInput" rows="14" aria-describedby="rawInputHint"></textarea>
@@ -621,9 +659,24 @@
   var dropboxConnectBtn = document.getElementById('dropboxConnectBtn');
   var dropboxSaveBtn = document.getElementById('dropboxSaveBtn');
   var statusMsg = document.getElementById('statusMsg');
+  var dropboxConnectTopBtn = document.getElementById('dropboxConnectTopBtn');
+  var dropboxOpenBtn = document.getElementById('dropboxOpenBtn');
+  var dropboxFilePicker = document.getElementById('dropboxFilePicker');
+  var dropboxFileSearch = document.getElementById('dropboxFileSearch');
+  var dropboxFileStatus = document.getElementById('dropboxFileStatus');
+  var dropboxFileUl = document.getElementById('dropboxFileUl');
+  var dropboxFileCancelBtn = document.getElementById('dropboxFileCancelBtn');
 
   var currentIsChordPro = false;
   var currentGuessedKey = null;
+  // Set only when the song currently loaded for editing came FROM Dropbox
+  // (its exact path there) — drives whether "Save to Dropbox" overwrites
+  // that same file or saves as a new one. Cleared whenever the user starts
+  // from pasted/typed text instead, since that's a different song.
+  var currentOpenPath = null;
+  var allDropboxSongs = [];
+  var dropboxSongsLoaded = false;
+  var SONG_EXTENSIONS = ['.txt', '.cho', '.crd', '.chopro', '.chord', '.pro'];
 
   function updateFormatNote() {
     currentIsChordPro = hasChordBrackets(cleanedOutput.value);
@@ -633,6 +686,7 @@
   }
 
   cleanBtn.addEventListener('click', function () {
+    currentOpenPath = null;
     var result = cleanPastedText(rawInput.value);
     cleanedOutput.value = result.text;
     var parts = [];
@@ -659,6 +713,7 @@
   });
 
   useAsTypedBtn.addEventListener('click', function () {
+    currentOpenPath = null;
     cleanedOutput.value = rawInput.value.replace(/[ \t]+$/gm, '');
     currentGuessedKey = null;
     statsNote.textContent = 'Used exactly as typed, no cleanup applied. Review the result below before saving.';
@@ -709,11 +764,133 @@
   function setDropboxConnectedUi(connected) {
     dropboxConnectBtn.hidden = connected;
     dropboxSaveBtn.hidden = !connected;
+    dropboxConnectTopBtn.hidden = connected;
+    dropboxOpenBtn.hidden = !connected;
+    if (!connected) {
+      dropboxFilePicker.hidden = true;
+    }
   }
 
-  dropboxConnectBtn.addEventListener('click', function () {
+  function startDropboxConnect() {
     window.LyriCueDropbox.startConnect();
+  }
+  dropboxConnectBtn.addEventListener('click', startDropboxConnect);
+  dropboxConnectTopBtn.addEventListener('click', startDropboxConnect);
+
+  // ---------------------------------------------------------------------
+  // Opening an existing song from Dropbox to edit
+  // ---------------------------------------------------------------------
+  var DIRECTIVE_LINE_RE = /^\{([^:}]+?)(?::(.*))?\}\s*$/;
+
+  /**
+   * Pulls {title:}/{artist:}/{key:} directives out of a downloaded
+   * ChordPro file (currentFileContents() writes these fresh from the
+   * title/artist/key fields on every save — leaving the old ones in
+   * cleanedOutput would duplicate them next time) and returns what's
+   * left as the body. A plain .txt file has none of these and passes
+   * through untouched.
+   */
+  function extractDirectivesAndBody(rawText) {
+    var title = null, artist = null, key = null;
+    var bodyLines = [];
+    rawText.split(/\r\n|\r|\n/).forEach(function (line) {
+      var m = line.trim().match(DIRECTIVE_LINE_RE);
+      if (m) {
+        var name = m[1].trim().toLowerCase();
+        var arg = (m[2] || '').trim();
+        if (name === 'title' || name === 't') { title = arg; return; }
+        if (name === 'artist' || name === 'subtitle' || name === 'st') { artist = arg; return; }
+        if (name === 'key') { key = arg; return; }
+      }
+      bodyLines.push(line);
+    });
+    // Drop leading/trailing blank lines left behind once the directive
+    // lines (which were usually followed by one blank separator line)
+    // are pulled out.
+    while (bodyLines.length && bodyLines[0].trim() === '') bodyLines.shift();
+    while (bodyLines.length && bodyLines[bodyLines.length - 1].trim() === '') bodyLines.pop();
+    return { title: title, artist: artist, key: key, body: bodyLines.join('\n') };
+  }
+
+  /** Falls back to the "Title - Artist.ext" filename convention for a plain .txt with no directives. */
+  function titleArtistFromFilename(name) {
+    var withoutExt = name.replace(/\.[^./]+$/, '');
+    var sepIndex = withoutExt.indexOf(' - ');
+    if (sepIndex === -1) return { title: withoutExt, artist: '' };
+    return { title: withoutExt.slice(0, sepIndex).trim(), artist: withoutExt.slice(sepIndex + 3).trim() };
+  }
+
+  function refreshDropboxSongs() {
+    dropboxFileStatus.textContent = 'Loading your songs…';
+    return window.LyriCueDropbox.listFolder('').then(function (entries) {
+      allDropboxSongs = entries
+        .filter(function (e) { return !e.isFolder; })
+        .filter(function (e) {
+          var lower = e.name.toLowerCase();
+          return SONG_EXTENSIONS.some(function (ext) { return lower.endsWith(ext); });
+        })
+        .sort(function (a, b) { return a.name.localeCompare(b.name); });
+      dropboxSongsLoaded = true;
+      renderDropboxFileList();
+    }).catch(function (err) {
+      dropboxFileStatus.textContent = 'Could not load your Dropbox songs: ' + err.message;
+    });
+  }
+
+  function renderDropboxFileList() {
+    var query = dropboxFileSearch.value.trim().toLowerCase();
+    var matches = query
+      ? allDropboxSongs.filter(function (s) { return s.name.toLowerCase().indexOf(query) !== -1; })
+      : allDropboxSongs;
+    var shown = matches.slice(0, 40);
+    dropboxFileUl.innerHTML = '';
+    shown.forEach(function (song) {
+      var li = document.createElement('li');
+      var name = document.createElement('span');
+      name.textContent = song.name;
+      var openLiBtn = document.createElement('button');
+      openLiBtn.type = 'button';
+      openLiBtn.textContent = 'Open';
+      openLiBtn.setAttribute('aria-label', 'Open ' + song.name + ' to edit');
+      openLiBtn.addEventListener('click', function () { openDropboxSong(song); });
+      li.appendChild(name);
+      li.appendChild(openLiBtn);
+      dropboxFileUl.appendChild(li);
+    });
+    dropboxFileStatus.textContent = query
+      ? matches.length + ' match' + (matches.length === 1 ? '' : 'es') + (matches.length > shown.length ? ' (showing first ' + shown.length + ')' : '')
+      : allDropboxSongs.length + ' song' + (allDropboxSongs.length === 1 ? '' : 's') + ' in your Dropbox' + (allDropboxSongs.length > shown.length ? ' (showing first ' + shown.length + ' — type to search)' : '');
+  }
+
+  function openDropboxSong(song) {
+    dropboxFileStatus.textContent = 'Opening ' + song.name + '…';
+    window.LyriCueDropbox.downloadFile(song.path).then(function (content) {
+      var parsed = extractDirectivesAndBody(content);
+      var fallback = parsed.title === null ? titleArtistFromFilename(song.name) : null;
+      titleField.value = parsed.title !== null ? parsed.title : fallback.title;
+      artistField.value = parsed.artist !== null ? parsed.artist : fallback.artist;
+      currentGuessedKey = parsed.key;
+      cleanedOutput.value = parsed.body;
+      currentOpenPath = song.path;
+      dropboxFilePicker.hidden = true;
+      resultSection.hidden = false;
+      updateFormatNote();
+      statusMsg.textContent = 'Opened ' + song.name + ' for editing. Saving to Dropbox will update this same file.';
+      titleField.focus();
+    }).catch(function (err) {
+      dropboxFileStatus.textContent = 'Could not open ' + song.name + ': ' + err.message;
+    });
+  }
+
+  dropboxOpenBtn.addEventListener('click', function () {
+    dropboxFilePicker.hidden = false;
+    dropboxFileSearch.focus();
+    if (!dropboxSongsLoaded) refreshDropboxSongs();
   });
+  dropboxFileCancelBtn.addEventListener('click', function () {
+    dropboxFilePicker.hidden = true;
+  });
+  dropboxFileSearch.addEventListener('input', renderDropboxFileList);
 
   dropboxSaveBtn.addEventListener('click', function () {
     if (!titleField.value.trim()) {
@@ -721,10 +898,21 @@
       titleField.focus();
       return;
     }
-    statusMsg.textContent = 'Saving to Dropbox…';
-    window.LyriCueDropbox.uploadFile('/' + currentFilename(), currentFileContents())
+    // Overwrite the file this song was opened from ONLY if the filename
+    // still matches what it was opened as — if the title/artist edit
+    // changed what the filename would be, treat it as a different song
+    // and save as a new file instead of silently renaming/losing the
+    // original (autorename protects against colliding with anything
+    // else already using that name).
+    var overwriting = currentOpenPath && currentOpenPath.toLowerCase() === ('/' + currentFilename()).toLowerCase();
+    statusMsg.textContent = overwriting ? 'Saving changes to Dropbox…' : 'Saving to Dropbox…';
+    window.LyriCueDropbox.uploadFile('/' + currentFilename(), currentFileContents(), overwriting ? 'overwrite' : 'add')
       .then(function (data) {
-        statusMsg.textContent = 'Saved to Dropbox as ' + (data.name || currentFilename()) + '. It will show up in LyriCue’s Dropbox import screen on your phone.';
+        currentOpenPath = '/' + (data.name || currentFilename());
+        statusMsg.textContent = overwriting
+          ? 'Updated ' + currentFilename() + ' in Dropbox.'
+          : 'Saved to Dropbox as ' + (data.name || currentFilename()) + '. It will show up in LyriCue’s Dropbox import screen on your phone.';
+        dropboxSongsLoaded = false; // stale now — reload next time the picker opens
       })
       .catch(function (err) {
         statusMsg.textContent = 'Could not save to Dropbox: ' + err.message;
