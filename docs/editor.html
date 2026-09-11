@@ -138,7 +138,7 @@
 <p class="intro">A PC-based tool for building song files for LyriCue: paste in a song from the web (a whole copied page, cleaned up automatically) or your own lyrics as you're writing them, and either way get a plain text or ChordPro file you can download or save straight to your LyriCue Dropbox folder.</p>
 
 <ol class="steps">
-  <li>Paste the copied page below, or type/paste your own lyrics directly.</li>
+  <li>Paste the copied page below, type/paste your own lyrics directly, or import a Word file.</li>
   <li>Click "Clean Up" if you pasted a whole webpage — it strips out navigation, ads, and other page clutter. If it's your own lyrics with nothing to clean, click "Use As Typed" instead to skip straight to saving.</li>
   <li>Either way, review the result before saving — cleanup is a helper, not magic.</li>
   <li>Fill in the title (and artist, if you have it), then download the file or save it straight to Dropbox.</li>
@@ -163,6 +163,9 @@
 
 <button id="cleanBtn" type="button">Clean Up</button>
 <button id="useAsTypedBtn" type="button" class="secondary">Use As Typed</button>
+<button id="importWordBtn" type="button" class="secondary">Import a Word file (.docx)</button>
+<input id="importWordInput" type="file" accept=".docx" hidden>
+<p id="importWordStatus" class="note" role="status" aria-live="polite"></p>
 
 <div id="resultSection" hidden>
   <h2>Review and save</h2>
@@ -188,6 +191,7 @@
   <p id="statusMsg" class="status" role="status" aria-live="polite"></p>
 </div>
 
+<script src="jszip.min.js"></script>
 <script src="dropbox.js"></script>
 <script>
 (function () {
@@ -666,6 +670,9 @@
   var dropboxFileStatus = document.getElementById('dropboxFileStatus');
   var dropboxFileUl = document.getElementById('dropboxFileUl');
   var dropboxFileCancelBtn = document.getElementById('dropboxFileCancelBtn');
+  var importWordBtn = document.getElementById('importWordBtn');
+  var importWordInput = document.getElementById('importWordInput');
+  var importWordStatus = document.getElementById('importWordStatus');
 
   var currentIsChordPro = false;
   var currentGuessedKey = null;
@@ -723,6 +730,68 @@
   });
 
   cleanedOutput.addEventListener('input', updateFormatNote);
+
+  // ---------------------------------------------------------------------
+  // Importing a Word (.docx) file — a .docx is a zip archive with its text
+  // sitting inside word/document.xml. JSZip unpacks it, then this walks
+  // each paragraph's child nodes IN ORDER (not just the <w:t> text runs)
+  // so a manual line break (<w:br>) inside one Word "paragraph" — a common
+  // way lyrics get typed in Word — still becomes a real line break here,
+  // rather than silently getting run together with the line after it.
+  // ---------------------------------------------------------------------
+  function extractParagraphText(paragraphEl) {
+    var text = '';
+    var nodes = paragraphEl.getElementsByTagName('*');
+    for (var i = 0; i < nodes.length; i++) {
+      var tag = nodes[i].tagName;
+      if (tag === 'w:t') {
+        text += nodes[i].textContent;
+      } else if (tag === 'w:br' || tag === 'w:cr') {
+        text += '\n';
+      } else if (tag === 'w:tab') {
+        text += '\t';
+      }
+    }
+    return text;
+  }
+
+  function extractTextFromDocx(arrayBuffer) {
+    return JSZip.loadAsync(arrayBuffer).then(function (zip) {
+      var docFile = zip.file('word/document.xml');
+      if (!docFile) throw new Error("That doesn't look like a valid Word (.docx) file.");
+      return docFile.async('string');
+    }).then(function (xmlString) {
+      var xmlDoc = new DOMParser().parseFromString(xmlString, 'application/xml');
+      if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+        throw new Error("Couldn't read this Word file's contents.");
+      }
+      var paragraphs = xmlDoc.getElementsByTagName('w:p');
+      var lines = [];
+      for (var i = 0; i < paragraphs.length; i++) {
+        lines.push(extractParagraphText(paragraphs[i]));
+      }
+      return lines.join('\n');
+    });
+  }
+
+  importWordBtn.addEventListener('click', function () {
+    importWordInput.click();
+  });
+
+  importWordInput.addEventListener('change', function () {
+    var file = importWordInput.files[0];
+    importWordInput.value = ''; // so picking the same file again still fires 'change'
+    if (!file) return;
+    importWordStatus.textContent = 'Reading ' + file.name + '…';
+    file.arrayBuffer().then(extractTextFromDocx).then(function (text) {
+      currentOpenPath = null;
+      rawInput.value = text;
+      importWordStatus.textContent = 'Imported ' + file.name + ' — click "Clean Up" or "Use As Typed" below to continue.';
+      rawInput.focus();
+    }).catch(function (err) {
+      importWordStatus.textContent = 'Could not import ' + file.name + ': ' + err.message;
+    });
+  });
 
   function currentFilename() {
     var title = sanitizeFilename(titleField.value) || 'Untitled';
