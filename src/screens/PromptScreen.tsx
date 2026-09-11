@@ -459,7 +459,22 @@ export function PromptScreen({ navigation }: Props) {
     // accounts for the safe area at all, so a reaching finger hunting for a
     // small top-row button has very little room before crossing into actual
     // system chrome (Rusty's real report, 2026-08-28).
-    <SafeAreaView style={styles.container} edges={['top']} accessibilityViewIsModal>
+    <SafeAreaView
+      style={styles.container}
+      edges={['top']}
+      accessibilityViewIsModal
+      // The two-finger "Z" scrub gesture is VoiceOver's built-in "Escape"
+      // action (iOS only) — it fires no matter which element on screen
+      // currently has focus, since VoiceOver walks up the view hierarchy
+      // looking for a handler if the focused element doesn't have one
+      // itself. A tester asked whether it could jump back to the library
+      // from here, 2026-09-11 — purely additive: the header's own
+      // "Library" link (below) still works exactly as before for anyone
+      // who doesn't know or use this gesture, sighted users included,
+      // since onAccessibilityEscape has no effect at all with VoiceOver
+      // off. Same popTo (not navigate) as that link, for the same reason.
+      onAccessibilityEscape={() => navigation.popTo('Library')}
+    >
       <View style={styles.header}>
         <View style={styles.headerTextBlock}>
           <Text style={styles.songTitle} numberOfLines={1}>
