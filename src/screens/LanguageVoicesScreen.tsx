@@ -64,7 +64,10 @@ export function LanguageVoicesScreen({ navigation }: Props) {
 
   if (pickingForCode) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      // Escape here cancels the voice picker back to the main list (the
+      // same thing its own visible Back link does), not a full navigation
+      // pop — this sub-view is local state, not a separate route.
+      <SafeAreaView style={styles.container} edges={['top']} onAccessibilityEscape={() => setPickingForCode(null)}>
         <View style={styles.headerRow}>
           <Pressable
             hitSlop={LINK_HIT_SLOP}
@@ -111,7 +114,7 @@ export function LanguageVoicesScreen({ navigation }: Props) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']} onAccessibilityEscape={() => navigation.goBack()}>
       <View style={styles.headerRow}>
         <Pressable
           hitSlop={LINK_HIT_SLOP}

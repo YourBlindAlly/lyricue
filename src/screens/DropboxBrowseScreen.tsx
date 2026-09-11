@@ -176,7 +176,7 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
 
   if (!isDropboxConfigured) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['top']} onAccessibilityEscape={() => navigation.goBack()}>
         <View style={styles.headerLeft}>
           <Pressable
             hitSlop={LINK_HIT_SLOP}
@@ -209,7 +209,7 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
 
   if (!isConnected) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['top']} onAccessibilityEscape={() => navigation.goBack()}>
         <View style={styles.headerLeft}>
           <Pressable
             hitSlop={LINK_HIT_SLOP}
@@ -236,7 +236,10 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    // Same goBack() the visible Back link uses — for a nested folder this
+    // correctly steps up one level rather than jumping straight to
+    // Library, matching normal back-stack behavior.
+    <SafeAreaView style={styles.container} edges={['top']} onAccessibilityEscape={() => navigation.goBack()}>
       <View style={styles.headerRow}>
         <View style={[styles.headerLeft, styles.headerLeftNoMargin]}>
           <Pressable

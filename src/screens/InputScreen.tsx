@@ -60,9 +60,15 @@ export function InputScreen({ navigation, route }: Props) {
   };
 
   return (
+    // Escape mirrors the visible Cancel button exactly, AI-search-rejection
+    // feedback included — lands back on whichever screen actually opened
+    // this one (Library for a new song, Prompt for editing an existing
+    // one), since handleCancel's plain goBack() already handles both
+    // correctly. Same VoiceOver two-finger-scrub support as PromptScreen.
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      onAccessibilityEscape={handleCancel}
     >
       <View style={styles.headerRow}>
         <Text style={styles.heading} accessibilityRole="header">

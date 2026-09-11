@@ -78,7 +78,7 @@ export function SetlistsScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']} onAccessibilityEscape={() => navigation.goBack()}>
       <View style={styles.headerRow}>
         <Pressable
           hitSlop={LINK_HIT_SLOP}

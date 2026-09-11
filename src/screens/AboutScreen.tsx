@@ -21,7 +21,14 @@ export function AboutScreen({ navigation }: Props) {
   const handleContinue = () => navigation.navigate('Library');
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    // No escape handler at all on first launch — matches there being no
+    // visible Back link either, since this is a required onboarding step
+    // with nowhere to go back to yet.
+    <SafeAreaView
+      style={styles.container}
+      edges={['top']}
+      onAccessibilityEscape={isFirstLaunch ? undefined : () => navigation.goBack()}
+    >
       <View style={styles.headerRow}>
         {!isFirstLaunch && (
           <Pressable

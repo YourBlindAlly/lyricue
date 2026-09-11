@@ -57,6 +57,7 @@ export function FindSongScreen({ navigation }: Props) {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      onAccessibilityEscape={() => navigation.goBack()}
     >
       <View style={styles.headerRow}>
         <Pressable

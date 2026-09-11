@@ -111,7 +111,10 @@ export function PedalSettingsScreen({ navigation }: Props) {
     bindings.filter((b) => b.action === action);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    // Same VoiceOver two-finger-scrub "Escape" support as PromptScreen —
+    // mirrors the visible Back link's own onBack, landing back on Prompt
+    // (where this screen is always opened from). See PromptScreen.tsx.
+    <SafeAreaView style={styles.container} edges={['top']} onAccessibilityEscape={onBack}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.headerRow}>
           <Pressable hitSlop={LINK_HIT_SLOP} onPress={onBack} accessibilityRole="button" accessibilityLabel={strings.pedalSettings.backButtonLabel}>

@@ -428,7 +428,12 @@ export function VoiceSettingsScreen({ navigation }: Props) {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    // Same VoiceOver two-finger-scrub "Escape" support as PromptScreen —
+    // calls the exact same onBack the visible Back link already uses, so
+    // it lands wherever Back already does (Prompt, since that's where
+    // this screen is always opened from). See PromptScreen.tsx for the
+    // full reasoning.
+    <SafeAreaView style={styles.container} edges={['top']} onAccessibilityEscape={onBack}>
       <View style={styles.headerRow}>
         <Pressable hitSlop={LINK_HIT_SLOP} onPress={onBack} accessibilityRole="button" accessibilityLabel={strings.voiceSettings.backButtonLabel}>
           <Text style={styles.backLink}>{strings.voiceSettings.backButtonLabel}</Text>
