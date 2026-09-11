@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,6 +20,69 @@ import { useStrings } from '../i18n';
 import type { Song } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Library'>;
+
+type SongRowProps = {
+  song: Song;
+  accessibilityLabel: string;
+  accessibilityHint: string | undefined;
+  editActionLabel: string;
+  deleteActionLabel: string;
+  sourceLabel: string;
+  onPress: (song: Song) => void;
+  onEdit: (song: Song) => void;
+  onDelete: (song: Song) => void;
+};
+
+// Its own memoized component, not an inline function inside FlatList's
+// renderItem, specifically so a library resort (which touches every row's
+// position, not its content) doesn't force every visible row to fully
+// re-render — React can recognize an unchanged song (same id, same props)
+// and skip re-rendering it even though its position in the list moved,
+// as long as the callback props below stay referentially stable too.
+const SongRow = React.memo(function SongRow({
+  song,
+  accessibilityLabel,
+  accessibilityHint,
+  editActionLabel,
+  deleteActionLabel,
+  sourceLabel,
+  onPress,
+  onEdit,
+  onDelete,
+}: SongRowProps) {
+  return (
+    <Pressable
+      style={styles.songRow}
+      onPress={() => onPress(song)}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      // VoiceOver custom actions — swipe up/down while this row has focus
+      // to cycle through Edit/Delete, double-tap to perform whichever is
+      // selected — instead of separate Edit/Remove buttons that used to
+      // cost two extra swipe-stops per song just to move to the next one.
+      accessibilityActions={[
+        { name: 'edit', label: editActionLabel },
+        { name: 'delete', label: deleteActionLabel },
+      ]}
+      onAccessibilityAction={(event) => {
+        switch (event.nativeEvent.actionName) {
+          case 'edit':
+            onEdit(song);
+            break;
+          case 'delete':
+            onDelete(song);
+            break;
+        }
+      }}
+    >
+      <Text style={styles.songTitle} numberOfLines={1}>
+        {song.title}
+      </Text>
+      <Text style={styles.songSource}>{sourceLabel}</Text>
+    </Pressable>
+  );
+});
 
 export function LibraryScreen({ navigation }: Props) {
   const strings = useStrings();
@@ -62,10 +125,13 @@ export function LibraryScreen({ navigation }: Props) {
   // link elsewhere uses popTo, which fully collapses the stack back down to
   // just this screen, so Prompt never exists yet at this point and a normal
   // push is exactly right.
-  const handleOpenSong = async (song: Song) => {
-    await loadSong(song);
-    navigation.navigate('Prompt');
-  };
+  const handleOpenSong = useCallback(
+    async (song: Song) => {
+      await loadSong(song);
+      navigation.navigate('Prompt');
+    },
+    [loadSong, navigation]
+  );
 
   const handleImportFile = async () => {
     setIsImporting(true);
@@ -99,12 +165,22 @@ export function LibraryScreen({ navigation }: Props) {
     }
   };
 
-  const handleRemove = (song: Song) => {
-    Alert.alert(strings.library.removeSongAlertTitle, strings.library.removeSongAlertMessage(song.title), [
-      { text: strings.library.cancelLabel, style: 'cancel' },
-      { text: strings.library.removeLabel, style: 'destructive', onPress: () => removeFromLibrary(song.id) },
-    ]);
-  };
+  const handleRemove = useCallback(
+    (song: Song) => {
+      Alert.alert(strings.library.removeSongAlertTitle, strings.library.removeSongAlertMessage(song.title), [
+        { text: strings.library.cancelLabel, style: 'cancel' },
+        { text: strings.library.removeLabel, style: 'destructive', onPress: () => removeFromLibrary(song.id) },
+      ]);
+    },
+    [strings, removeFromLibrary]
+  );
+
+  const handleEditSong = useCallback(
+    (song: Song) => {
+      navigation.navigate('NewSong', { editSong: song });
+    },
+    [navigation]
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -204,37 +280,17 @@ export function LibraryScreen({ navigation }: Props) {
           data={sortedLibrary}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <Pressable
-              style={styles.songRow}
-              onPress={() => handleOpenSong(item)}
-              accessibilityRole="button"
+            <SongRow
+              song={item}
               accessibilityLabel={strings.library.songRowAccessibilityLabel(item.title, SOURCE_LABEL[item.source.type])}
               accessibilityHint={hintOrNone(strings.library.songRowAccessibilityHint, reduceHints)}
-              // VoiceOver custom actions — swipe up/down while this row has
-              // focus to cycle through Edit/Delete, double-tap to perform
-              // whichever is selected — instead of separate Edit/Remove
-              // buttons that used to cost two extra swipe-stops per song
-              // just to move from one song to the next.
-              accessibilityActions={[
-                { name: 'edit', label: strings.library.editActionLabel },
-                { name: 'delete', label: strings.library.deleteActionLabel },
-              ]}
-              onAccessibilityAction={(event) => {
-                switch (event.nativeEvent.actionName) {
-                  case 'edit':
-                    navigation.navigate('NewSong', { editSong: item });
-                    break;
-                  case 'delete':
-                    handleRemove(item);
-                    break;
-                }
-              }}
-            >
-              <Text style={styles.songTitle} numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text style={styles.songSource}>{SOURCE_LABEL[item.source.type]}</Text>
-            </Pressable>
+              editActionLabel={strings.library.editActionLabel}
+              deleteActionLabel={strings.library.deleteActionLabel}
+              sourceLabel={SOURCE_LABEL[item.source.type]}
+              onPress={handleOpenSong}
+              onEdit={handleEditSong}
+              onDelete={handleRemove}
+            />
           )}
         />
       )}
