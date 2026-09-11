@@ -59,6 +59,20 @@ function extractChordTokens(line: string): ChordToken[] {
   return tokens;
 }
 
+/**
+ * A bracket line that reads as a section label ("[Verse 2]", "[Bridge]")
+ * rather than one of ChordPro's own {start_of_verse}-style directives —
+ * LyriCue's web Lyric Editor tool writes section headers this way. A
+ * chord-only line must never merge into one of these, or the label itself
+ * gets corrupted with chord text spliced into its words (e.g. "[Verse 2]"
+ * becoming "[Verse[A#] 2]").
+ */
+function isSectionLabelLine(line: string): boolean {
+  const trimmed = line.trim();
+  const m = trimmed.match(/^\[([^\]]+)\]$/);
+  return !!m && !isChordName(m[1]);
+}
+
 function wordSpans(line: string): { start: number; end: number }[] {
   const spans: { start: number; end: number }[] = [];
   const re = /\S+/g;
@@ -141,6 +155,7 @@ export function mergeChordOnlyLines(rawText: string): string {
       const nextIsUsable =
         nextLine !== null &&
         !isChordOnlyLine(nextLine) &&
+        !isSectionLabelLine(nextLine) &&
         !/^\s*\{/.test(nextLine) &&
         !isJunkLine(nextLine.trim());
       if (nextIsUsable) {

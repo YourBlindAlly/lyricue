@@ -57,6 +57,16 @@ describe('mergeChordOnlyLines', () => {
     expect(mergeChordOnlyLines(input)).toBe('{end_of_verse}');
   });
 
+  it('drops (rather than corrupting) a chord-only line sitting right before a bracket-style section label', () => {
+    // Real bug found live 2026-09-11: without the section-label exclusion,
+    // this merged the chords straight into "[Verse 2]" itself, producing
+    // something like "[Verse[A#] 2]" — which then partially survived the
+    // main ChordPro parser's bracket-stripping as stray leftover text
+    // (a floating "2" rendered as if it were a real lyric line).
+    const input = ['[Amaj7][A#][A]', '[Verse 2]', 'A real lyric line'].join('\n');
+    expect(mergeChordOnlyLines(input)).toBe('[Verse 2]\nA real lyric line');
+  });
+
   it('drops a chord-only line immediately followed by another chord-only line', () => {
     const input = ['[G5]', '[D5]', 'A real lyric line'].join('\n');
     // The first chord-only line has nothing usable right after it (another
