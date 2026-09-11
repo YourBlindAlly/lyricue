@@ -9,6 +9,7 @@ import {
   DEFAULT_SORT_MODE,
   loadLibrarySortMode,
   nextSortMode,
+  previousSortMode,
   saveLibrarySortMode,
   SORT_MODE_LABEL,
 } from '../library/librarySortPreference';
@@ -36,9 +37,13 @@ export function LibraryScreen({ navigation }: Props) {
     loadLibrarySortMode().then(setSortMode);
   }, []);
 
-  const handleCycleSort = () => {
+  // Swipe up/down while focused (VoiceOver's native "adjustable" gesture) is
+  // the primary way to change this, per the standing rule that every
+  // adjustable control defaults to swipe first — tap still cycles forward
+  // as the sighted/no-VoiceOver fallback.
+  const handleAdjustSort = (direction: 'increment' | 'decrement') => {
     setSortMode((current) => {
-      const next = nextSortMode(current);
+      const next = direction === 'increment' ? nextSortMode(current) : previousSortMode(current);
       void saveLibrarySortMode(next);
       return next;
     });
@@ -170,10 +175,23 @@ export function LibraryScreen({ navigation }: Props) {
       {isLibraryLoaded && library.length > 0 ? (
         <Pressable
           style={styles.sortButton}
-          onPress={handleCycleSort}
-          accessibilityRole="button"
-          accessibilityLabel={strings.library.sortButtonLabel(SORT_MODE_LABEL[sortMode])}
+          onPress={() => handleAdjustSort('increment')}
+          accessible
+          accessibilityRole="adjustable"
+          accessibilityLabel={strings.library.sortText}
+          accessibilityValue={{ text: SORT_MODE_LABEL[sortMode] }}
           accessibilityHint={hintOrNone(strings.library.sortButtonHint, reduceHints)}
+          accessibilityActions={[
+            { name: 'increment', label: strings.library.nextSortActionLabel },
+            { name: 'decrement', label: strings.library.previousSortActionLabel },
+          ]}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === 'increment') {
+              handleAdjustSort('increment');
+            } else if (event.nativeEvent.actionName === 'decrement') {
+              handleAdjustSort('decrement');
+            }
+          }}
         >
           <Text style={styles.sortButtonText}>{strings.library.sortButtonLabel(SORT_MODE_LABEL[sortMode])}</Text>
         </Pressable>

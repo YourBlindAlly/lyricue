@@ -14,7 +14,7 @@ import {
 } from '../cloud/dropbox/dropboxApi';
 import { buildSongFromFile } from '../parsing/buildSong';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
-import { nextSortMode, SORT_MODE_LABEL } from '../library/librarySortPreference';
+import { nextSortMode, previousSortMode, SORT_MODE_LABEL } from '../library/librarySortPreference';
 import {
   DEFAULT_DROPBOX_SORT_MODE,
   loadDropboxSortMode,
@@ -47,9 +47,13 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
     loadDropboxSortMode().then(setSortMode);
   }, []);
 
-  const handleCycleSort = () => {
+  // Swipe up/down while focused (VoiceOver's native "adjustable" gesture) is
+  // the primary way to change this, per the standing rule that every
+  // adjustable control defaults to swipe first — tap still cycles forward
+  // as the sighted/no-VoiceOver fallback.
+  const handleAdjustSort = (direction: 'increment' | 'decrement') => {
     setSortMode((current) => {
-      const next = nextSortMode(current);
+      const next = direction === 'increment' ? nextSortMode(current) : previousSortMode(current);
       void saveDropboxSortMode(next);
       return next;
     });
@@ -258,10 +262,23 @@ export function DropboxBrowseScreen({ navigation, route }: Props) {
           {files.length > 0 && (
             <Pressable
               hitSlop={LINK_HIT_SLOP}
-              onPress={handleCycleSort}
-              accessibilityRole="button"
-              accessibilityLabel={strings.dropboxBrowse.sortLabel(SORT_MODE_LABEL[sortMode])}
+              onPress={() => handleAdjustSort('increment')}
+              accessible
+              accessibilityRole="adjustable"
+              accessibilityLabel={strings.dropboxBrowse.sortText}
+              accessibilityValue={{ text: SORT_MODE_LABEL[sortMode] }}
               accessibilityHint={hintOrNone(strings.dropboxBrowse.sortHint, reduceHints)}
+              accessibilityActions={[
+                { name: 'increment', label: strings.dropboxBrowse.nextSortActionLabel },
+                { name: 'decrement', label: strings.dropboxBrowse.previousSortActionLabel },
+              ]}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === 'increment') {
+                  handleAdjustSort('increment');
+                } else if (event.nativeEvent.actionName === 'decrement') {
+                  handleAdjustSort('decrement');
+                }
+              }}
             >
               <Text style={styles.selectLink}>{strings.dropboxBrowse.sortLabel(SORT_MODE_LABEL[sortMode])}</Text>
             </Pressable>
