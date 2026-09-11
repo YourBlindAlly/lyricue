@@ -318,6 +318,40 @@
     return tokens;
   }
 
+  // Real bug found live 2026-09-11: Ultimate-Guitar's actual copy/paste
+  // text does NOT bracket its chords at all — a chord-only line looks
+  // like plain chord names separated by whitespace, column-aligned above
+  // the lyric line it belongs to (no [brackets] anywhere), a completely
+  // different shape from the bracketed ChordPro convention the app's own
+  // mergeChordOnlyLines.ts was built around. Left undetected, this whole
+  // line just passed straight through as if it were a real lyric line —
+  // explaining both "extra junk in the file" (the bare chord line itself)
+  // and "chords still speak with chords off" (the app has no way to know
+  // that text was ever a chord, since it's not bracketed). "N.C."/"NC"
+  // (a standard "no chord" marker) is recognized as part of a chord line
+  // but contributes no bracket of its own.
+  var BARE_CHORDY_TOKEN_RE = /^([A-Ga-g][#b]?(maj|min|dim|aug|sus|add)?[0-9]*m?[0-9]*(\/[A-Ga-g][#b]?)?|N\.?C\.?)$/;
+
+  function isBareChordOnlyLine(line) {
+    var spans = wordSpans(line);
+    if (spans.length === 0) return false;
+    for (var i = 0; i < spans.length; i++) {
+      if (!BARE_CHORDY_TOKEN_RE.test(line.slice(spans[i].start, spans[i].end))) return false;
+    }
+    return true;
+  }
+
+  function extractBareChordTokens(line) {
+    var spans = wordSpans(line);
+    var tokens = [];
+    for (var i = 0; i < spans.length; i++) {
+      var token = line.slice(spans[i].start, spans[i].end);
+      if (/^N\.?C\.?$/i.test(token)) continue;
+      tokens.push({ name: token, column: spans[i].start });
+    }
+    return tokens;
+  }
+
   function wordSpans(line) {
     var spans = [];
     var re = /\S+/g;
@@ -367,14 +401,17 @@
     var out = [];
     var i = 0;
     while (i < lines.length) {
-      if (isChordOnlyLine(lines[i])) {
-        var chords = extractChordTokens(lines[i]);
+      var bracketed = isChordOnlyLine(lines[i]);
+      var bare = !bracketed && isBareChordOnlyLine(lines[i]);
+      if (bracketed || bare) {
+        var chords = bracketed ? extractChordTokens(lines[i]) : extractBareChordTokens(lines[i]);
         var j = i + 1;
         while (j < lines.length && lines[j].trim().length === 0) j++;
         var nextLine = j < lines.length ? lines[j] : null;
         var nextIsUsable =
           nextLine !== null &&
           !isChordOnlyLine(nextLine) &&
+          !isBareChordOnlyLine(nextLine) &&
           !/^\s*\{/.test(nextLine) &&
           !isJunkLine(nextLine.trim()) &&
           !looksLikePageChrome(nextLine);
