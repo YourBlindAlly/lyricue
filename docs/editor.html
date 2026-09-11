@@ -225,7 +225,7 @@
     /add to (favorites|favourites|playlist|songbook)/i,
     /related (songs|tabs|chords)/i,
     /you (might|may) also like/i,
-    /^(home|chords|tabs|bass|ukulele|piano|drums|video|videos|search|menu|edit|courses|songbooks|articles|forums|\+ publish tab|official tabs|all artists)$/i,
+    /^(home|chords|tabs|bass|ukulele|piano|drums|guitar|video|videos|search|menu|edit|courses|songbooks|articles|forums|\+ publish tab|official tabs|all artists)$/i,
     // Site footer/account/promo chrome — a real Ctrl+A/Ctrl+C picks up a
     // LOT of this on a commercial chord/tab site, not just the visible
     // song content. Found live 2026-09-11 against a real Ultimate-Guitar
@@ -244,13 +244,22 @@
     /^(upgrade to pro\+?|articles staff|fresh tabs|guitar tuner|app store|google play|apple store)$/i,
     /welcome offer/i,
     /^try now$/i,
+    // Tab-page metadata found live 2026-09-11 in a real re-test: an
+    // "Author X. Last edit on <date>" byline, a glued-together strumming-
+    // pattern-correct prompt (two separate UI strings copy/pasted with no
+    // space between them), and the beat-grid labels next to it (a bpm
+    // figure, and the "&" off-beat markers, one per line).
+    /^author\b/i,
+    /last edit(ed)? on/i,
+    /strumming pattern correct/i,
+    /^\d+\s*bpm$/i,
   ];
   var SHORT_NUMERIC_RE = /^[\d\s.,\-\/:]{1,8}$/;
   // A UG-style A-Z artist index ("# A B C D E ... Z", one letter per
   // line) and a lone capital "X" (a close/dismiss icon rendered as plain
   // text) are both essentially never real lyric content on their own —
   // case-sensitive so it can't catch a real lowercase word.
-  var LONE_LETTER_RE = /^[A-Z#]$/;
+  var LONE_LETTER_RE = /^[A-Z#&]$/;
   // A nav bar collapsed to plain text by Ctrl+A/Ctrl+C often lands as ONE
   // line with several short menu words run together ("Home  Chords  Tabs
   // Bass  Ukulele"), not one word per line — catches that shape too, not
@@ -412,6 +421,7 @@
           nextLine !== null &&
           !isChordOnlyLine(nextLine) &&
           !isBareChordOnlyLine(nextLine) &&
+          !isSectionMarkerLine(nextLine) &&
           !/^\s*\{/.test(nextLine) &&
           !isJunkLine(nextLine.trim()) &&
           !looksLikePageChrome(nextLine);
@@ -458,11 +468,42 @@
     return -1;
   }
 
+  // A real section label ("[Intro]", "[Verse 1]", "[Chorus]") — deliberately
+  // excludes a chord-shaped bracket ("[A7]", "[Bm7]") using the same
+  // isChordName check the chord-merge logic already relies on, so a chord
+  // sitting alone on a line never gets mistaken for a section marker.
+  function isSectionMarkerLine(line) {
+    var trimmed = line.trim();
+    var m = trimmed.match(/^\[([^\]]+)\]$/);
+    return !!m && !isChordName(m[1]);
+  }
+
+  // Once a chord/tab site's actual song content starts (its first real
+  // section marker), everything before that is reliably site chrome or
+  // tab metadata (byline, key/tuning/difficulty, strumming-pattern
+  // widgets, a restated title/subtitle) — found live 2026-09-11 still
+  // leaking through even after the per-line pattern list was widened
+  // twice. Same reasoning as the trailing-content-end trim: bounding by a
+  // reliable marker beats trying to enumerate every possible thing a site
+  // can put before the song. Only fires when a real marker actually
+  // exists — a plain lyrics-only paste with no section labels at all is
+  // left completely untouched, same fail-open rule as everywhere else
+  // here.
+  function findContentStartIndex(lines) {
+    for (var i = 0; i < lines.length; i++) {
+      if (isSectionMarkerLine(lines[i])) return i;
+    }
+    return -1;
+  }
+
   function cleanPastedText(rawText) {
     var merged = mergeChordOnlyLines(rawText);
     var rawLines = merged.split(/\r\n|\r|\n/);
     var endIndex = findContentEndIndex(rawLines);
     if (endIndex !== -1) rawLines = rawLines.slice(0, endIndex);
+    var startIndex = findContentStartIndex(rawLines);
+    var trimmedHead = startIndex > 0;
+    if (startIndex !== -1) rawLines = rawLines.slice(startIndex);
     var outLines = [];
     var junkRemoved = 0;
     var chromeRemoved = 0;
@@ -491,6 +532,7 @@
       junkRemoved: junkRemoved,
       chromeRemoved: chromeRemoved,
       trimmedTail: endIndex !== -1,
+      trimmedHead: trimmedHead,
     };
   }
 
@@ -537,6 +579,23 @@
     return null;
   }
 
+  // A tab site's own "Key: A" metadata line gets swept up by the new
+  // leading-content trim (it always sits before the first section marker)
+  // — worth capturing before that happens rather than just losing it, so
+  // it still shows up as {key: A} in the saved file the same way it would
+  // if you'd typed it in yourself.
+  var KEY_LINE_RE = /^key:?\s*([A-Ga-g][#b]?m?)\s*$/i;
+
+  function guessKey(rawText) {
+    var lines = rawText.split(/\r\n|\r|\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
+    var candidates = lines.slice(0, 20);
+    for (var i = 0; i < candidates.length; i++) {
+      var m = candidates[i].match(KEY_LINE_RE);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
   // ---------------------------------------------------------------------
   // UI wiring
   // ---------------------------------------------------------------------
@@ -555,6 +614,7 @@
   var statusMsg = document.getElementById('statusMsg');
 
   var currentIsChordPro = false;
+  var currentGuessedKey = null;
 
   function updateFormatNote() {
     currentIsChordPro = hasChordBrackets(cleanedOutput.value);
@@ -567,6 +627,7 @@
     var result = cleanPastedText(rawInput.value);
     cleanedOutput.value = result.text;
     var parts = [];
+    if (result.trimmedHead) parts.push('trimmed everything before what looks like the start of the song (site nav, byline, tab metadata)');
     if (result.trimmedTail) parts.push('trimmed everything after what looks like the end of the song (comments, related songs, site footer)');
     if (result.chromeRemoved > 0) parts.push(result.chromeRemoved + ' page-clutter line' + (result.chromeRemoved === 1 ? '' : 's') + ' removed');
     if (result.junkRemoved > 0) parts.push(result.junkRemoved + ' performance-note/tab line' + (result.junkRemoved === 1 ? '' : 's') + ' removed');
@@ -579,7 +640,9 @@
         guessed = true;
       }
     }
+    currentGuessedKey = guessKey(rawInput.value);
     if (guessed) parts.push('title/artist guessed from the pasted page — double-check them');
+    if (currentGuessedKey) parts.push('key (' + currentGuessedKey + ') picked up from the page');
     statsNote.textContent = parts.length > 0 ? parts.join(', ') + '. Review the result below before saving.' : 'Nothing obvious to remove — review the result below before saving.';
     resultSection.hidden = false;
     updateFormatNote();
@@ -588,6 +651,7 @@
 
   useAsTypedBtn.addEventListener('click', function () {
     cleanedOutput.value = rawInput.value.replace(/[ \t]+$/gm, '');
+    currentGuessedKey = null;
     statsNote.textContent = 'Used exactly as typed, no cleanup applied. Review the result below before saving.';
     resultSection.hidden = false;
     updateFormatNote();
@@ -607,6 +671,7 @@
     if (!currentIsChordPro) return cleanedOutput.value;
     var directives = '{title: ' + titleField.value.trim() + '}\n';
     if (artistField.value.trim()) directives += '{artist: ' + artistField.value.trim() + '}\n';
+    if (currentGuessedKey) directives += '{key: ' + currentGuessedKey + '}\n';
     return directives + '\n' + cleanedOutput.value;
   }
 
