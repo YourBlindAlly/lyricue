@@ -430,6 +430,15 @@
           i = j + 1;
           continue;
         }
+        // Nothing usable to merge into (e.g. an instrumental chord line
+        // sitting right before a section marker, or at the very end of
+        // the song) — keep the chord info as its own bracketed line
+        // rather than silently dropping it.
+        if (bracketed) {
+          out.push(lines[i]);
+        } else {
+          out.push(chords.map(function (c) { return '[' + c.name + ']'; }).join(' '));
+        }
         i++;
         continue;
       }
