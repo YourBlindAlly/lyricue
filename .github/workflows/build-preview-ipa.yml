@@ -1,6 +1,6 @@
 name: Build preview iOS ipa
 
-# Builds "CueMe Preview" — same app, but with a different bundle identifier
+# Builds "LyriCue Preview" — same app, but with a different bundle identifier
 # (com.rustyperez.cueme.preview) and display name than the real app
 # (see app.config.js's APP_VARIANT handling). Installing this alongside the
 # real app gives it a completely separate local storage sandbox, so a fresh
@@ -72,14 +72,14 @@ jobs:
             -scheme "${{ steps.find.outputs.scheme }}" \
             -configuration Release \
             -destination "generic/platform=iOS" \
-            -archivePath build/CueMePreview.xcarchive \
+            -archivePath build/LyriCuePreview.xcarchive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Package unsigned ipa
         run: |
-          app_path=$(find build/CueMePreview.xcarchive/Products/Applications -maxdepth 1 -name "*.app" | head -n1)
+          app_path=$(find build/LyriCuePreview.xcarchive/Products/Applications -maxdepth 1 -name "*.app" | head -n1)
           mkdir -p Payload
           cp -r "$app_path" Payload/
           zip -r LyriCue-Preview-unsigned.ipa Payload

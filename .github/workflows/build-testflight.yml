@@ -92,7 +92,7 @@ jobs:
             -scheme "${{ steps.find.outputs.scheme }}" \
             -configuration Release \
             -destination "generic/platform=iOS" \
-            -archivePath build/CueMe.xcarchive \
+            -archivePath build/LyriCue.xcarchive \
             -allowProvisioningUpdates \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
@@ -121,7 +121,7 @@ jobs:
           </plist>
           PLIST
           xcodebuild -exportArchive \
-            -archivePath build/CueMe.xcarchive \
+            -archivePath build/LyriCue.xcarchive \
             -exportPath build/export \
             -exportOptionsPlist exportOptions.plist \
             -allowProvisioningUpdates
