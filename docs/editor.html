@@ -200,7 +200,7 @@
     /log\s*in/i,
     /sign\s*up/i,
     /^register$/i,
-    /view(s|ed)?\s*:?\s*[\d,]+$/i,
+    /\d[\d,]*\s*views?\b/i,
     /rating:?\s*\d/i,
     /difficulty:?\s*(beginner|intermediate|advanced|easy|hard)/i,
     /transpose/i,
@@ -208,7 +208,8 @@
     /font\s*size/i,
     /chord\s*diagrams?/i,
     /suggest\s*(a\s*)?correction/i,
-    /report\s*(this|an)\s*(error|issue|problem)/i,
+    /create correction/i,
+    /report\s*(this|an|bad)\s*(error|issue|problem|tab)/i,
     /^advertisement$/i,
     /^sponsored$/i,
     /^\s*\d+\s*\/\s*\d+\s*$/,
@@ -220,18 +221,41 @@
     /leave a (comment|reply)/i,
     /\d+\s+(comments?|replies)/i,
     /^comments?\s*\(?\d*\)?$/i,
-    /was this (helpful|useful)/i,
+    /was this (info )?(helpful|useful)/i,
     /add to (favorites|favourites|playlist|songbook)/i,
     /related (songs|tabs|chords)/i,
     /you (might|may) also like/i,
-    /^(home|chords|tabs|bass|ukulele|piano|drums|video|videos|search|menu)$/i,
+    /^(home|chords|tabs|bass|ukulele|piano|drums|video|videos|search|menu|edit|courses|songbooks|articles|forums|\+ publish tab|official tabs|all artists)$/i,
+    // Site footer/account/promo chrome — a real Ctrl+A/Ctrl+C picks up a
+    // LOT of this on a commercial chord/tab site, not just the visible
+    // song content. Found live 2026-09-11 against a real Ultimate-Guitar
+    // page: a seasonal sale banner, countdown timer labels, and the full
+    // account/footer nav all survived the original pattern list.
+    /\d+%\s*off/i,
+    /special offer/i,
+    /^dismiss$/i,
+    /^(days|hrs|min|sec)$/i,
+    /please rate this tab/i,
+    /^rate \d$/i,
+    /^ver\.?\s*\d+(\s*\*)?$/i,
+    /^more versions$/i,
+    /^(discover|about (us|ug)|site rules|advertise|support|legal|dmca)$/i,
+    /don.t sell my info/i,
+    /^(upgrade to pro\+?|articles staff|fresh tabs|guitar tuner|app store|google play|apple store)$/i,
+    /welcome offer/i,
+    /^try now$/i,
   ];
   var SHORT_NUMERIC_RE = /^[\d\s.,\-\/:]{1,8}$/;
+  // A UG-style A-Z artist index ("# A B C D E ... Z", one letter per
+  // line) and a lone capital "X" (a close/dismiss icon rendered as plain
+  // text) are both essentially never real lyric content on their own —
+  // case-sensitive so it can't catch a real lowercase word.
+  var LONE_LETTER_RE = /^[A-Z#]$/;
   // A nav bar collapsed to plain text by Ctrl+A/Ctrl+C often lands as ONE
   // line with several short menu words run together ("Home  Chords  Tabs
   // Bass  Ukulele"), not one word per line — catches that shape too, not
   // just an isolated single nav word.
-  var NAV_WORDS = ['home', 'chords', 'tabs', 'bass', 'ukulele', 'piano', 'drums', 'video', 'videos', 'search', 'menu', 'guitar', 'artists', 'songs'];
+  var NAV_WORDS = ['home', 'chords', 'tabs', 'bass', 'ukulele', 'piano', 'drums', 'video', 'videos', 'search', 'menu', 'guitar', 'artists', 'songs', 'courses', 'songbooks', 'articles', 'forums'];
 
   function isAllNavWords(trimmed) {
     var words = trimmed.split(/\s+/).filter(function (w) { return w.length > 0; });
@@ -246,6 +270,7 @@
     var trimmed = line.trim();
     if (trimmed.length === 0) return false;
     if (trimmed.length <= 8 && SHORT_NUMERIC_RE.test(trimmed)) return true;
+    if (LONE_LETTER_RE.test(trimmed)) return true;
     if (isAllNavWords(trimmed)) return true;
     for (var i = 0; i < PAGE_CHROME_PATTERNS.length; i++) {
       if (PAGE_CHROME_PATTERNS[i].test(trimmed)) return true;
@@ -370,9 +395,37 @@
   // ---------------------------------------------------------------------
   // Cleanup orchestration
   // ---------------------------------------------------------------------
+  // Reliable "the song is definitely over" markers — found on real chord
+  // sites right after the last lyric/chord line (a correction/report
+  // link, a rating widget, a "more versions" list). Once one of these is
+  // seen, everything from that line on (comments, related songs, site
+  // footer) is dropped outright, rather than relying on the per-line
+  // chrome patterns to individually catch every different kind of thing
+  // that can follow — those vary a lot more page to page than what
+  // reliably marks the END of the real content.
+  var CONTENT_END_MARKERS = [
+    /create correction/i,
+    /please rate this tab/i,
+    /^rate \d$/i,
+    /report\s*(this|an|bad)\s*(error|issue|problem|tab)/i,
+    /^more versions$/i,
+  ];
+
+  function findContentEndIndex(lines) {
+    for (var i = 0; i < lines.length; i++) {
+      var trimmed = lines[i].trim();
+      for (var m = 0; m < CONTENT_END_MARKERS.length; m++) {
+        if (CONTENT_END_MARKERS[m].test(trimmed)) return i;
+      }
+    }
+    return -1;
+  }
+
   function cleanPastedText(rawText) {
     var merged = mergeChordOnlyLines(rawText);
     var rawLines = merged.split(/\r\n|\r|\n/);
+    var endIndex = findContentEndIndex(rawLines);
+    if (endIndex !== -1) rawLines = rawLines.slice(0, endIndex);
     var outLines = [];
     var junkRemoved = 0;
     var chromeRemoved = 0;
@@ -400,6 +453,7 @@
       text: outLines.join('\n'),
       junkRemoved: junkRemoved,
       chromeRemoved: chromeRemoved,
+      trimmedTail: endIndex !== -1,
     };
   }
 
@@ -476,6 +530,7 @@
     var result = cleanPastedText(rawInput.value);
     cleanedOutput.value = result.text;
     var parts = [];
+    if (result.trimmedTail) parts.push('trimmed everything after what looks like the end of the song (comments, related songs, site footer)');
     if (result.chromeRemoved > 0) parts.push(result.chromeRemoved + ' page-clutter line' + (result.chromeRemoved === 1 ? '' : 's') + ' removed');
     if (result.junkRemoved > 0) parts.push(result.junkRemoved + ' performance-note/tab line' + (result.junkRemoved === 1 ? '' : 's') + ' removed');
     var guessed = false;
