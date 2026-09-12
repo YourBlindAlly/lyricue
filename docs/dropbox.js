@@ -55,6 +55,19 @@ window.LyriCueDropbox = (function () {
     return !!loadTokens();
   }
 
+  /**
+   * The raw stored refresh token, or null if not connected. Not used by
+   * the normal app flow (getValidAccessToken handles refreshing
+   * internally) — exists only for the one-time setup step of pulling a
+   * long-lived token out for a backend service to hold permanently (see
+   * reveal-token.html). Never call this for anything else; a refresh
+   * token is a real, sensitive credential.
+   */
+  function getStoredRefreshToken() {
+    var tokens = loadTokens();
+    return tokens ? tokens.refreshToken : null;
+  }
+
   function disconnect() {
     localStorage.removeItem(TOKEN_KEY);
   }
@@ -224,6 +237,7 @@ window.LyriCueDropbox = (function () {
   return {
     isConnected: isConnected,
     disconnect: disconnect,
+    getStoredRefreshToken: getStoredRefreshToken,
     startConnect: startConnect,
     handleRedirectIfPresent: handleRedirectIfPresent,
     listFolder: listFolder,
