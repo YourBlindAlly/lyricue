@@ -62,12 +62,6 @@ export function AboutScreen({ navigation }: Props) {
 
         <Text style={styles.paragraph}>{strings.about.introParagraph}</Text>
 
-        <Text style={styles.paragraph}>{strings.about.gettingStartedParagraph}</Text>
-
-        <Text style={styles.paragraph}>{strings.about.lyricsScreenParagraph}</Text>
-
-        <Text style={styles.paragraph}>{strings.about.voiceParagraph}</Text>
-
         <Text style={styles.paragraph}>{strings.about.feedbackParagraph(CONTACT_EMAIL)}</Text>
 
         <Pressable
@@ -79,6 +73,12 @@ export function AboutScreen({ navigation }: Props) {
         >
           <Text style={styles.contactButtonText}>{strings.about.contactButtonLabel}</Text>
         </Pressable>
+
+        <Text style={styles.paragraph}>{strings.about.gettingStartedParagraph}</Text>
+
+        <Text style={styles.paragraph}>{strings.about.lyricsScreenParagraph}</Text>
+
+        <Text style={styles.paragraph}>{strings.about.voiceParagraph}</Text>
 
         <Text style={styles.versionText}>
           {strings.about.versionText(Constants.expoConfig?.version ?? '1.0.0')}
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     borderColor: '#2f6fed',
     paddingVertical: 14,
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 18,
   },
   contactButtonText: {
     color: '#4f8cff',

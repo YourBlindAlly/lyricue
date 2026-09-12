@@ -27,8 +27,8 @@ export const en = {
 
   library: {
     heading: 'Your Songs',
-    aboutAccessibilityLabel: 'About LyriCue',
-    aboutLinkText: 'About',
+    infoAccessibilityLabel: 'LyriCue info',
+    infoLinkText: 'Info',
     dropboxButtonLabel: 'Dropbox',
     setlistsButtonLabel: 'Setlists',
     addSongButtonLabel: 'Add a Song',

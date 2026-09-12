@@ -29,8 +29,8 @@ export const uk: Strings = {
 
   library: {
     heading: 'Ваші пісні',
-    aboutAccessibilityLabel: 'Про LyriCue',
-    aboutLinkText: 'Про додаток',
+    infoAccessibilityLabel: 'Інформація про LyriCue',
+    infoLinkText: 'Інфо',
     dropboxButtonLabel: 'Dropbox',
     setlistsButtonLabel: 'Сетлисти',
     addSongButtonLabel: 'Додати пісню',
