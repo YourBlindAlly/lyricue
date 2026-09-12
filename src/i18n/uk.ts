@@ -19,6 +19,10 @@ export const uk: Strings = {
     voiceParagraph:
       'LyriCue має власний голос, окремий від VoiceOver, тому він звучить і працює однаково незалежно від того, увімкнено VoiceOver чи ні.',
     feedbackParagraph: (email: string) => `Щось не працює, або є ідея щодо нової функції? Напишіть на ${email}.`,
+    websiteButtonLabel: 'Відвідати сайт',
+    websiteButtonAccessibilityHint: 'Відкриває сайт LyriCue, включно з інструментами Lyric Editor та Setlist Builder.',
+    websiteFailedTitle: 'Не вдалося відкрити сайт',
+    websiteFailedMessage: (url: string) => `Відвідайте ${url} безпосередньо.`,
     contactButtonLabel: 'Зв\'язатися з розробником',
     contactButtonAccessibilityHint: 'Відкриває Пошту з новим листом, уже адресованим Расті.',
     contactFailedTitle: 'Не вдалося відкрити Пошту',

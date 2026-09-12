@@ -17,6 +17,10 @@ export const en = {
     voiceParagraph:
       "LyriCue has its own voice, separate from VoiceOver, so it sounds and works the same whether VoiceOver is on or off.",
     feedbackParagraph: (email: string) => `Something not working, or have an idea for a feature? Email ${email}.`,
+    websiteButtonLabel: 'Visit the Website',
+    websiteButtonAccessibilityHint: 'Opens the LyriCue website, including the Lyric Editor and Setlist Builder tools.',
+    websiteFailedTitle: "Couldn't open the website",
+    websiteFailedMessage: (url: string) => `Visit ${url} directly instead.`,
     contactButtonLabel: 'Contact the Developer',
     contactButtonAccessibilityHint: 'Opens Mail with a new message already addressed to Rusty.',
     contactFailedTitle: "Couldn't open Mail",

@@ -10,6 +10,14 @@ import { useStrings } from '../i18n';
 type Props = NativeStackScreenProps<RootStackParamList, 'About'>;
 
 const CONTACT_EMAIL = 'rusty.perez@gmail.com';
+// GitHub Pages URL for now — swap for the custom domain once it exists.
+// No real cost either way: this is a live, stable link today, and a
+// custom domain pointed at the same GitHub Pages site would very likely
+// keep this exact URL working too, so updating it later is polish, not
+// a fix for anything broken. See "shared community search - design and
+// setup steps.txt" for the parallel Dropbox-backend work this sits
+// alongside — both raised together 2026-09-12.
+const WEBSITE_URL = 'https://yourblindally.github.io/lyricue/';
 
 export function AboutScreen({ navigation }: Props) {
   const strings = useStrings();
@@ -23,6 +31,12 @@ export function AboutScreen({ navigation }: Props) {
   const handleContact = () => {
     Linking.openURL(`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('LyriCue feedback')}`).catch(() => {
       Alert.alert(strings.about.contactFailedTitle, strings.about.contactFailedMessage(CONTACT_EMAIL));
+    });
+  };
+
+  const handleVisitWebsite = () => {
+    Linking.openURL(WEBSITE_URL).catch(() => {
+      Alert.alert(strings.about.websiteFailedTitle, strings.about.websiteFailedMessage(WEBSITE_URL));
     });
   };
 
@@ -63,6 +77,16 @@ export function AboutScreen({ navigation }: Props) {
         <Text style={styles.paragraph}>{strings.about.introParagraph}</Text>
 
         <Text style={styles.paragraph}>{strings.about.feedbackParagraph(CONTACT_EMAIL)}</Text>
+
+        <Pressable
+          style={styles.contactButton}
+          onPress={handleVisitWebsite}
+          accessibilityRole="button"
+          accessibilityLabel={strings.about.websiteButtonLabel}
+          accessibilityHint={strings.about.websiteButtonAccessibilityHint}
+        >
+          <Text style={styles.contactButtonText}>{strings.about.websiteButtonLabel}</Text>
+        </Pressable>
 
         <Pressable
           style={styles.contactButton}
