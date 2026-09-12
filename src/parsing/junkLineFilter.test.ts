@@ -78,4 +78,23 @@ describe('isJunkLine', () => {
   it('does not flag a real lyric line', () => {
     expect(isJunkLine('And the cat sat quietly on the mat by the door')).toBe(false);
   });
+
+  it('flags a line that trims down to nothing but stray punctuation', () => {
+    // Real bug found live 2026-09-12 in "Have You Ever Seen the Rain"
+    // (CCR): a line of trailing whitespace ending in a lone "." — a
+    // leftover formatting artifact, spoken as if it were a real lyric.
+    expect(isJunkLine('                                        .')).toBe(true);
+    expect(isJunkLine('...')).toBe(true);
+    expect(isJunkLine('!?')).toBe(true);
+  });
+
+  it('does not flag a bare "-" or "--" — this app\'s own section-marker convention', () => {
+    expect(isJunkLine('-')).toBe(false);
+    expect(isJunkLine('--')).toBe(false);
+  });
+
+  it('does not flag a real lyric line that is short and ends in punctuation', () => {
+    expect(isJunkLine('Yeah!')).toBe(false);
+    expect(isJunkLine('Why?')).toBe(false);
+  });
 });

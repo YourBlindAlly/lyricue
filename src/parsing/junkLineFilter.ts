@@ -40,6 +40,14 @@ const TAB_DIAGRAM_RE = /[a-gA-G][b#]?\|[-0-9hpsb/\\~x]{3,}/;
 // and requires a decent run of tab characters before the closing letter, so
 // a real lyric starting with a single letter isn't caught by accident.
 const PIPELESS_TAB_DIAGRAM_RE = /^[a-gA-G][b#]?[-0-9hpsb/\\~x]{5,}[a-gA-G][b#]?\s*$/;
+// A line that trims down to nothing but stray punctuation — found live
+// 2026-09-12 in "Have You Ever Seen the Rain" (CCR): a line of trailing
+// whitespace ending in a lone "." with no real content, almost certainly a
+// leftover formatting artifact from wherever the file was originally
+// sourced, never a real sung lyric. Deliberately excludes "-" — "--" is
+// this app's own section-marker convention (see the original spec), so a
+// bare dash or double-dash must never be swept up here.
+const STRAY_PUNCTUATION_RE = /^[.,;:!?*~]+$/;
 
 /**
  * True if `line` is junk (a stray URL, performance note, "TIP:" aside, or
@@ -54,6 +62,7 @@ export function isJunkLine(line: string): boolean {
     PERFORMANCE_NOTE_RE.test(trimmed) ||
     TIP_RE.test(trimmed) ||
     TAB_DIAGRAM_RE.test(trimmed) ||
-    PIPELESS_TAB_DIAGRAM_RE.test(trimmed)
+    PIPELESS_TAB_DIAGRAM_RE.test(trimmed) ||
+    STRAY_PUNCTUATION_RE.test(trimmed)
   );
 }
