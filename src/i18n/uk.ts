@@ -19,6 +19,10 @@ export const uk: Strings = {
     voiceParagraph:
       'LyriCue має власний голос, окремий від VoiceOver, тому він звучить і працює однаково незалежно від того, увімкнено VoiceOver чи ні.',
     feedbackParagraph: (email: string) => `Щось не працює, або є ідея щодо нової функції? Напишіть на ${email}.`,
+    contactButtonLabel: 'Зв\'язатися з розробником',
+    contactButtonAccessibilityHint: 'Відкриває Пошту з новим листом, уже адресованим Расті.',
+    contactFailedTitle: 'Не вдалося відкрити Пошту',
+    contactFailedMessage: (email: string) => `Напишіть безпосередньо на ${email}.`,
     versionText: (version: string) => `Версія ${version}`,
     getStartedButtonLabel: 'Почати',
   },

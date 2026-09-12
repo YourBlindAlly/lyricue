@@ -17,6 +17,10 @@ export const en = {
     voiceParagraph:
       "LyriCue has its own voice, separate from VoiceOver, so it sounds and works the same whether VoiceOver is on or off.",
     feedbackParagraph: (email: string) => `Something not working, or have an idea for a feature? Email ${email}.`,
+    contactButtonLabel: 'Contact the Developer',
+    contactButtonAccessibilityHint: 'Opens Mail with a new message already addressed to Rusty.',
+    contactFailedTitle: "Couldn't open Mail",
+    contactFailedMessage: (email: string) => `Email ${email} directly instead.`,
     versionText: (version: string) => `Version ${version}`,
     getStartedButtonLabel: 'Get Started',
   },

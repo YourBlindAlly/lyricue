@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -19,6 +19,12 @@ export function AboutScreen({ navigation }: Props) {
   // button at the end of the content instead, and no Back link at all.
   const isFirstLaunch = !navigation.canGoBack();
   const handleContinue = () => navigation.navigate('Library');
+
+  const handleContact = () => {
+    Linking.openURL(`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('LyriCue feedback')}`).catch(() => {
+      Alert.alert(strings.about.contactFailedTitle, strings.about.contactFailedMessage(CONTACT_EMAIL));
+    });
+  };
 
   return (
     // No escape handler at all on first launch — matches there being no
@@ -63,6 +69,16 @@ export function AboutScreen({ navigation }: Props) {
         <Text style={styles.paragraph}>{strings.about.voiceParagraph}</Text>
 
         <Text style={styles.paragraph}>{strings.about.feedbackParagraph(CONTACT_EMAIL)}</Text>
+
+        <Pressable
+          style={styles.contactButton}
+          onPress={handleContact}
+          accessibilityRole="button"
+          accessibilityLabel={strings.about.contactButtonLabel}
+          accessibilityHint={strings.about.contactButtonAccessibilityHint}
+        >
+          <Text style={styles.contactButtonText}>{strings.about.contactButtonLabel}</Text>
+        </Pressable>
 
         <Text style={styles.versionText}>
           {strings.about.versionText(Constants.expoConfig?.version ?? '1.0.0')}
@@ -118,6 +134,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 23,
     marginBottom: 18,
+  },
+  contactButton: {
+    backgroundColor: '#1c1c1c',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2f6fed',
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  contactButtonText: {
+    color: '#4f8cff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   versionText: {
     color: '#999',
