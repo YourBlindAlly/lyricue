@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -97,6 +97,21 @@ export function LibraryScreen({ navigation }: Props) {
   const [isImporting, setIsImporting] = useState(false);
   const [sortMode, setSortMode] = useState(DEFAULT_SORT_MODE);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isEditingSearch, setIsEditingSearch] = useState(false);
+  const searchInputRef = useRef<TextInput>(null);
+
+  // Raised by Rusty 2026-09-15: no way to get back to the full library once
+  // you'd started typing in this box — shown while actively editing it, OR
+  // whenever a search is still narrowing the list (so it's still reachable
+  // after tapping away from the field with results on screen, not just
+  // while the keyboard is up). Clears the query AND blurs the field, so a
+  // single tap always gets the whole library back regardless of which of
+  // the two states triggered it.
+  const showCancelSearch = isEditingSearch || searchQuery.trim().length > 0;
+  const handleCancelSearch = () => {
+    setSearchQuery('');
+    searchInputRef.current?.blur();
+  };
 
   useEffect(() => {
     loadLibrarySortMode().then(setSortMode);
@@ -295,18 +310,33 @@ export function LibraryScreen({ navigation }: Props) {
           <Text style={styles.searchLabel} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {strings.library.searchLabel}
           </Text>
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={strings.library.searchPlaceholder}
-            placeholderTextColor="#777"
-            accessibilityLabel={strings.library.searchAccessibilityLabel}
-            returnKeyType="search"
-            autoCorrect={false}
-            autoCapitalize="none"
-            clearButtonMode="while-editing"
-          />
+          <View style={styles.searchRow}>
+            <TextInput
+              ref={searchInputRef}
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={strings.library.searchPlaceholder}
+              placeholderTextColor="#777"
+              accessibilityLabel={strings.library.searchAccessibilityLabel}
+              returnKeyType="search"
+              autoCorrect={false}
+              autoCapitalize="none"
+              clearButtonMode="while-editing"
+              onFocus={() => setIsEditingSearch(true)}
+              onBlur={() => setIsEditingSearch(false)}
+            />
+            {showCancelSearch && (
+              <Pressable
+                hitSlop={LINK_HIT_SLOP}
+                onPress={handleCancelSearch}
+                accessibilityRole="button"
+                accessibilityLabel={strings.library.cancelSearchLabel}
+              >
+                <Text style={styles.cancelSearchLink}>{strings.library.cancelSearchLabel}</Text>
+              </Pressable>
+            )}
+          </View>
         </>
       ) : null}
 
@@ -398,13 +428,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 6,
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
   searchInput: {
+    flex: 1,
     backgroundColor: '#1c1c1c',
     color: '#fff',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    marginBottom: 12,
+  },
+  cancelSearchLink: {
+    color: '#4f8cff',
+    fontSize: 16,
   },
   songRow: {
     backgroundColor: '#1c1c1c',

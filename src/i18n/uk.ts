@@ -54,6 +54,7 @@ export const uk: Strings = {
     searchLabel: 'Пошук',
     searchPlaceholder: 'Пошук у вашій бібліотеці',
     searchAccessibilityLabel: 'Пошук у вашій бібліотеці за назвою або виконавцем',
+    cancelSearchLabel: 'Скасувати',
     noSearchResultsText: (query: string) => `Пісень, що відповідають "${query}", не знайдено.`,
     songRowAccessibilityLabel: (title: string, source: string) => `${title}, ${source}`,
     songRowAccessibilityHint: 'Двічі торкніться, щоб відкрити. Проведіть вгору або вниз для інших дій.',

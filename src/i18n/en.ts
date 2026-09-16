@@ -52,6 +52,7 @@ export const en = {
     searchLabel: 'Search',
     searchPlaceholder: 'Search your library',
     searchAccessibilityLabel: 'Search your library by title or artist',
+    cancelSearchLabel: 'Cancel',
     noSearchResultsText: (query: string) => `No songs match "${query}".`,
     songRowAccessibilityLabel: (title: string, source: string) => `${title}, ${source}`,
     songRowAccessibilityHint: 'Double tap to open. Swipe up or down for more actions.',
