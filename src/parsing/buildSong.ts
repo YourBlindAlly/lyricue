@@ -1,5 +1,6 @@
 import { parseSong } from './parseSong';
 import { parseChordPro } from './parseChordPro';
+import { hasChordBrackets, mergeChordOnlyLines } from './mergeChordOnlyLines';
 import type { Song, SongSource, SectionMarker } from '../types';
 import type { ChordedWord } from './chordedWord';
 import type { SongLanguageCode } from '../speech/languageDetection';
@@ -37,7 +38,21 @@ function assemble(
   };
 }
 
+/**
+ * Builds a Song from text with no reliable ChordPro-extension signal (a
+ * manual paste, a plain .txt, a Word/PDF import — anything not already
+ * named .cho/.crd/.chopro/.chord/.pro). Since there's no filename to trust,
+ * this decides ChordPro-vs-plain from the CONTENT itself: run the same
+ * chord-only-line merge ChordPro files get, then check whether real
+ * [Chord] brackets are actually present. A source with genuine chords
+ * (bracketed OR bare/chord-above-lyric, either convention) gets parsed with
+ * full ChordPro awareness; a source with none becomes plain lyrics, same as
+ * before.
+ */
 export function buildSong(rawText: string, title: string | undefined, source: SongSource): Song | null {
+  if (hasChordBrackets(mergeChordOnlyLines(rawText))) {
+    return buildChordProSong(rawText, title?.trim() || '', source);
+  }
   const { lines, chordedLines, sections, language } = parseSong(rawText);
   const resolvedTitle = title?.trim() || lines[0] || '';
   return assemble(rawText, lines, chordedLines, sections, resolvedTitle, undefined, language, source);

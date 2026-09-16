@@ -30,8 +30,18 @@ const CHORD_NAME_RE =
 
 type ChordToken = { name: string; column: number };
 
-function isChordName(token: string): boolean {
+export function isChordName(token: string): boolean {
   return CHORD_NAME_RE.test(token.trim());
+}
+
+/** Whether `text` contains at least one bracketed token that's a real chord name (not a section label). */
+export function hasChordBrackets(text: string): boolean {
+  BRACKET_TOKEN_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = BRACKET_TOKEN_RE.exec(text)) !== null) {
+    if (isChordName(m[1])) return true;
+  }
+  return false;
 }
 
 /** A line that, once every chord-shaped bracket token is removed, is nothing but whitespace. */
@@ -71,6 +81,38 @@ function isSectionLabelLine(line: string): boolean {
   const trimmed = line.trim();
   const m = trimmed.match(/^\[([^\]]+)\]$/);
   return !!m && !isChordName(m[1]);
+}
+
+// A chord written WITHOUT brackets, sitting alone on its own line above the
+// lyric it changes on — the far more common convention for anything typed
+// by hand (a Word document, a plain-text paste) rather than scraped from a
+// ChordPro-aware source. "N.C."/"NC" (a standard "no chord" marker) is
+// recognized as part of a chord line but contributes no token of its own —
+// ported from docs/editor.html's isBareChordOnlyLine/extractBareChordTokens,
+// which already handles real Ultimate-Guitar-style pastes that never use
+// brackets at all.
+const BARE_CHORDY_TOKEN_RE =
+  /^([A-Ga-g][#b]?(maj|min|dim|aug|sus|add)?[0-9]*m?[0-9]*(\/[A-Ga-g][#b]?)?|N\.?C\.?)$/;
+
+function isBareChordOnlyLine(line: string): boolean {
+  const spans = wordSpans(line);
+  if (spans.length === 0) {
+    return false;
+  }
+  return spans.every((span) => BARE_CHORDY_TOKEN_RE.test(line.slice(span.start, span.end)));
+}
+
+function extractBareChordTokens(line: string): ChordToken[] {
+  const spans = wordSpans(line);
+  const tokens: ChordToken[] = [];
+  for (const span of spans) {
+    const token = line.slice(span.start, span.end);
+    if (/^N\.?C\.?$/i.test(token)) {
+      continue;
+    }
+    tokens.push({ name: token, column: span.start });
+  }
+  return tokens;
 }
 
 function wordSpans(line: string): { start: number; end: number }[] {
@@ -138,23 +180,26 @@ export function mergeChordOnlyLines(rawText: string): string {
   const out: string[] = [];
   let i = 0;
   while (i < lines.length) {
-    if (isChordOnlyLine(lines[i])) {
-      const chords = extractChordTokens(lines[i]);
+    const bracketed = isChordOnlyLine(lines[i]);
+    const bare = !bracketed && isBareChordOnlyLine(lines[i]);
+    if (bracketed || bare) {
+      const chords = bracketed ? extractChordTokens(lines[i]) : extractBareChordTokens(lines[i]);
       let j = i + 1;
       while (j < lines.length && lines[j].trim().length === 0) {
         j++;
       }
       const nextLine = j < lines.length ? lines[j] : null;
-      // Must be a genuine lyric line — not another chord-only line, a
-      // directive, or something isJunkLine would drop anyway (a tab
-      // diagram, a stray URL, a capo/tuning note). Without this check, a
-      // chord header sitting just above an unmarked tab diagram (a real
-      // shape found live 2026-09-04 in "Higher") gets merged into the tab
-      // line itself instead of being dropped, corrupting it into something
-      // isJunkLine no longer recognizes as junk.
+      // Must be a genuine lyric line — not another chord-only line (bare or
+      // bracketed), a directive, or something isJunkLine would drop anyway
+      // (a tab diagram, a stray URL, a capo/tuning note). Without this
+      // check, a chord header sitting just above an unmarked tab diagram (a
+      // real shape found live 2026-09-04 in "Higher") gets merged into the
+      // tab line itself instead of being dropped, corrupting it into
+      // something isJunkLine no longer recognizes as junk.
       const nextIsUsable =
         nextLine !== null &&
         !isChordOnlyLine(nextLine) &&
+        !isBareChordOnlyLine(nextLine) &&
         !isSectionLabelLine(nextLine) &&
         !/^\s*\{/.test(nextLine) &&
         !isJunkLine(nextLine.trim());

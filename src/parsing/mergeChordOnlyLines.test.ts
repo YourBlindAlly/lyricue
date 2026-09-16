@@ -96,4 +96,43 @@ describe('mergeChordOnlyLines', () => {
     expect(result).toContain('[Bb]');
     expect(result).not.toContain('\n'); // fully merged into one line
   });
+
+  // Bare (unbracketed) chord-only lines — the convention someone typing a
+  // song by hand in Word actually uses, since there's no reason a casual
+  // musician would know ChordPro's bracket syntax. Ported from the same
+  // logic already shipped in docs/editor.html's isBareChordOnlyLine.
+  it('merges a bare, unbracketed chord line into the next lyric line, same as a bracketed one', () => {
+    // G sits at column 11, closer to "grace,"'s start (column 8, distance 3)
+    // than to any other word boundary — nearest boundary wins, landing
+    // right before "grace," rather than anywhere later in the line.
+    const input = ['C          G', 'Amazing grace, how sweet the sound'].join('\n');
+    expect(mergeChordOnlyLines(input)).toBe('[C]Amazing [G]grace, how sweet the sound');
+  });
+
+  it('recognizes bare chords with accidentals, minor, sevenths, and slash bass notes', () => {
+    const input = ['F#m7  D/F#  Csus4  Bb', 'Real lyric content here'].join('\n');
+    const result = mergeChordOnlyLines(input);
+    expect(result).toContain('[F#m7]');
+    expect(result).toContain('[D/F#]');
+    expect(result).toContain('[Csus4]');
+    expect(result).toContain('[Bb]');
+  });
+
+  it('absorbs a bare "N.C." (no chord) marker without inserting anything for it', () => {
+    const input = ['N.C.', 'Silence here'].join('\n');
+    expect(mergeChordOnlyLines(input)).toBe('Silence here');
+  });
+
+  it('does not treat an ordinary lyric line as a bare chord line just because one word looks chord-shaped', () => {
+    const input = 'A real lyric line with several ordinary words';
+    expect(mergeChordOnlyLines(input)).toBe(input);
+  });
+
+  it('does not treat a bare chord-only line as a usable target for the chord line before it', () => {
+    const input = ['C', 'G', 'A real lyric line'].join('\n');
+    // Same "drop the first, merge the second" behavior as two consecutive
+    // bracketed chord-only lines — the first has nothing usable right after
+    // it (another chord-only line), so it's dropped.
+    expect(mergeChordOnlyLines(input)).toBe('[G]A real lyric line');
+  });
 });

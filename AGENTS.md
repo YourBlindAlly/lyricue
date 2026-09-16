@@ -59,7 +59,16 @@ in it. Status as of 2026-09-11, update this list as items get done:
   live 2026-09-11 when a section-marker-corruption bug was fixed in the web
   copy and only found missing from the app copy after a tester reported a
   stray number showing up in displayed lyrics. When touching one, check
-  whether the other needs the same fix.
+  whether the other needs the same fix. Synced again 2026-09-16: the app
+  copy only handled bracketed chord-only lines (`[G]` alone on its own
+  line); ported over the web copy's bare/unbracketed handling (`G` alone,
+  no brackets — the far more likely shape for anything typed by hand, e.g.
+  a Word document) as part of building Word-file import into the app. One
+  deliberate, permanent divergence between the two copies: when a
+  chord-only line has nothing usable to merge into, the web copy keeps it
+  (reconstructed as text); the app copy drops it. Don't "fix" this to match
+  the web copy — the app's existing tests are written against the drop
+  behavior and it was a deliberate choice, not an oversight.
 
 # Expo HAS CHANGED
 
