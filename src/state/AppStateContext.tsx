@@ -8,6 +8,7 @@ import {
 } from '../storage/activeSetlist';
 import { loadLibrary, removeLibrarySong, upsertLibrarySong } from '../library/libraryStorage';
 import { resolveSetlistEntry } from '../setlist/resolveSetlistEntry';
+import { pickRandomSetlistIndex } from '../setlist/pickRandomSetlistIndex';
 import { loadReduceHints, saveReduceHints } from '../speech/reduceHintsPreference';
 import type { Setlist } from '../setlist/setlistCsv';
 import type { Song } from '../types';
@@ -34,6 +35,14 @@ type AppStateValue = {
    */
   advanceSetlist: (direction: 'next' | 'previous') => Promise<Song | null>;
   clearSetlist: () => Promise<void>;
+  /**
+   * Turns the active setlist's random-next mode on or off. Turning it on
+   * seeds the "already played this cycle" tracking with just the current
+   * song, so the very next random pick can't immediately repeat it;
+   * turning it off drops that tracking since it's meaningless while random
+   * mode is off. No-op if no setlist is active.
+   */
+  setRandomSetlist: (enabled: boolean) => Promise<void>;
   /** Off by default. When on, VoiceOver usage hints ("swipe up for faster") are stripped from every control app-wide — see src/speech/reduceHintsPreference.ts. */
   reduceHints: boolean;
   setReduceHints: (value: boolean) => Promise<void>;
@@ -108,12 +117,40 @@ export function AppStateProvider({
         return null;
       }
       const { setlist, currentIndex } = activeSetlist;
+
+      if (direction === 'next' && activeSetlist.randomEnabled) {
+        const resolvableIndices = setlist.entries
+          .map((_, i) => i)
+          .filter((i) => resolveSetlistEntry(setlist.entries[i], library) !== null);
+        const picked = pickRandomSetlistIndex(
+          resolvableIndices,
+          currentIndex,
+          activeSetlist.playedIndices ?? [currentIndex]
+        );
+        if (!picked) {
+          return null;
+        }
+        const song = resolveSetlistEntry(setlist.entries[picked.index], library);
+        if (!song) {
+          return null; // shouldn't happen — resolvableIndices was just filtered on exactly this check
+        }
+        await loadSong(song);
+        const state: ActiveSetlistState = {
+          ...activeSetlist,
+          currentIndex: picked.index,
+          playedIndices: picked.playedIndices,
+        };
+        setActiveSetlistState(state);
+        await saveActiveSetlist(state);
+        return song;
+      }
+
       const step = direction === 'next' ? 1 : -1;
       for (let i = currentIndex + step; i >= 0 && i < setlist.entries.length; i += step) {
         const song = resolveSetlistEntry(setlist.entries[i], library);
         if (song) {
           await loadSong(song);
-          const state: ActiveSetlistState = { setlist, currentIndex: i };
+          const state: ActiveSetlistState = { ...activeSetlist, currentIndex: i };
           setActiveSetlistState(state);
           await saveActiveSetlist(state);
           return song;
@@ -124,6 +161,22 @@ export function AppStateProvider({
       return null;
     },
     [activeSetlist, library, loadSong]
+  );
+
+  const setRandomSetlist = useCallback(
+    async (enabled: boolean) => {
+      if (!activeSetlist) {
+        return;
+      }
+      const state: ActiveSetlistState = {
+        ...activeSetlist,
+        randomEnabled: enabled,
+        playedIndices: enabled ? [activeSetlist.currentIndex] : undefined,
+      };
+      setActiveSetlistState(state);
+      await saveActiveSetlist(state);
+    },
+    [activeSetlist]
   );
 
   const clearSetlist = useCallback(async () => {
@@ -143,6 +196,7 @@ export function AppStateProvider({
         activeSetlist,
         startSetlist,
         advanceSetlist,
+        setRandomSetlist,
         clearSetlist,
         reduceHints,
         setReduceHints,

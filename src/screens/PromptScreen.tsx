@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Directions, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -58,7 +58,7 @@ export function PromptScreen({ navigation }: Props) {
   // suppressDeactivateWarnings avoids a benign unhandled-rejection when the
   // screen unmounts before the (async, web-only) Wake Lock activation settles.
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
-  const { activeSong: song, activeSetlist, advanceSetlist, reduceHints } = useAppState();
+  const { activeSong: song, activeSetlist, advanceSetlist, setRandomSetlist, reduceHints } = useAppState();
   const { speakNow, speakSegments, stopImmediate, refreshVoicePreference } = useSpeech();
   // Which language-detection engine to run (Voice Settings' "Language
   // detection" toggle) and this song's resolved language once that engine
@@ -396,10 +396,32 @@ export function PromptScreen({ navigation }: Props) {
     speakSongSegments(displaySegments[prevIndex]);
   }, [currentIndex, displayLines, displaySegments, repeatFeatureEnabled, speakSongSegments]);
 
-  // Shared by the pedal's double-press, the on-screen song-corner buttons,
-  // and the adjustable "song N of M" text below — every trigger for a
-  // setlist song jump goes through this one place so they all behave
-  // identically (same interrupt, same sound, same announcement).
+  // A double press of "back" always restarts the CURRENT song from the top,
+  // whether or not a setlist is active — repurposed 2026-09-16 from
+  // "jump to the previous song in the setlist" (which only ever did
+  // anything with a setlist active, so outside one it was simply dead)
+  // after Rusty couldn't think of a real performance moment where going
+  // back a whole song mattered, versus restarting the one you're already on
+  // after losing your place, which is a genuinely common one. No song
+  // reload needed (it's already loaded), so this is synchronous — reset the
+  // repeat-controller (a fresh song position has no repeat history) and
+  // speak the title/key/capo announcement immediately, same as landing on
+  // a different song via a setlist jump. That announcement re-speaking is
+  // itself the confirmation this happened; no separate spoken label needed
+  // on top of it, and it also naturally interrupts whichever of the two
+  // presses' lines was still mid-flight.
+  const restartCurrentSong = useCallback(() => {
+    if (!isFocusedRef.current || displaySegments.length === 0) return;
+    playSongChangeFeedback();
+    repeatControllerRef.current = new RepeatController();
+    setCurrentIndex(0);
+    speakSongSegments(displaySegments[0]);
+  }, [displaySegments, speakSongSegments]);
+
+  // Shared by the pedal's double-press-forward, the on-screen song-corner
+  // buttons, and the adjustable "song N of M" text below — every trigger for
+  // jumping to a DIFFERENT setlist song goes through this one place so they
+  // all behave identically (same interrupt, same sound, same announcement).
   const jumpSetlistSong = useCallback(
     (direction: 'next' | 'previous') => {
       if (!isFocusedRef.current || !activeSetlist) return;
@@ -439,7 +461,11 @@ export function PromptScreen({ navigation }: Props) {
     // "Next/Previous song" rather than let a stale line keep playing while
     // the new song loads in the background (Rusty's report, 2026-08-30).
     onDoubleAction: (action) => {
-      jumpSetlistSong(action);
+      if (action === 'previous') {
+        restartCurrentSong();
+      } else {
+        jumpSetlistSong(action);
+      }
     },
     onDisconnectAlert: () => {
       if (!isFocusedRef.current) return;
@@ -533,6 +559,41 @@ export function PromptScreen({ navigation }: Props) {
                 )}
               </Text>
             </View>
+          ) : null}
+          {activeSetlist ? (
+            // Same swipe-adjustable-plus-tap pattern as PedalSettingsScreen's
+            // and VoiceSettingsScreen's toggles (each screen keeps its own
+            // copy rather than sharing one — see AGENTS.md's drift note for
+            // why that's the established convention here, not an oversight).
+            <Pressable
+              style={styles.randomToggleRow}
+              onPress={() => setRandomSetlist(!activeSetlist.randomEnabled)}
+              accessible
+              accessibilityRole="adjustable"
+              accessibilityLabel={strings.promptScreen.randomSetlistLabel}
+              accessibilityValue={{
+                text: activeSetlist.randomEnabled
+                  ? strings.promptScreen.randomSetlistStateOnLabel
+                  : strings.promptScreen.randomSetlistStateOffLabel,
+              }}
+              accessibilityHint={hintOrNone(strings.promptScreen.randomSetlistHint, reduceHints)}
+              accessibilityActions={[
+                { name: 'increment', label: strings.promptScreen.randomSetlistOnActionLabel },
+                { name: 'decrement', label: strings.promptScreen.randomSetlistOffActionLabel },
+              ]}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === 'increment') {
+                  setRandomSetlist(true);
+                } else if (event.nativeEvent.actionName === 'decrement') {
+                  setRandomSetlist(false);
+                }
+              }}
+            >
+              <Text style={styles.setlistText} numberOfLines={1}>
+                {strings.promptScreen.randomSetlistLabel}
+              </Text>
+              <Switch value={!!activeSetlist.randomEnabled} pointerEvents="none" />
+            </Pressable>
           ) : null}
         </View>
         <View style={styles.headerLinks}>
@@ -824,6 +885,12 @@ const styles = StyleSheet.create({
     color: '#4f8cff',
     fontSize: 13,
     marginTop: 2,
+  },
+  randomToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
   },
   headerLinks: {
     flexDirection: 'row',
