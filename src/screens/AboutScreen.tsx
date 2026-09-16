@@ -10,14 +10,15 @@ import { useStrings } from '../i18n';
 type Props = NativeStackScreenProps<RootStackParamList, 'About'>;
 
 const CONTACT_EMAIL = 'rusty.perez@gmail.com';
-// GitHub Pages URL for now — swap for the custom domain once it exists.
-// No real cost either way: this is a live, stable link today, and a
-// custom domain pointed at the same GitHub Pages site would very likely
-// keep this exact URL working too, so updating it later is polish, not
-// a fix for anything broken. See "shared community search - design and
-// setup steps.txt" for the parallel Dropbox-backend work this sits
-// alongside — both raised together 2026-09-12.
-const WEBSITE_URL = 'https://yourblindally.github.io/lyricue/';
+// Custom domain, live since 2026-09-15 — was the GitHub Pages default
+// URL before that (see git history on this line for the old one).
+const WEBSITE_URL = 'https://lyricue.net/';
+// Straight to the Setlist Builder — its own page nav also links to the
+// Lyric Editor, so either tool is one tap away from here. A separate
+// button from "Visit the Website" on purpose: that one leads with the
+// About/Features marketing content, this one skips straight to the
+// actual working tools, raised by Rusty 2026-09-15.
+const TOOLS_URL = 'https://lyricue.net/setlists.html';
 
 export function AboutScreen({ navigation }: Props) {
   const strings = useStrings();
@@ -37,6 +38,12 @@ export function AboutScreen({ navigation }: Props) {
   const handleVisitWebsite = () => {
     Linking.openURL(WEBSITE_URL).catch(() => {
       Alert.alert(strings.about.websiteFailedTitle, strings.about.websiteFailedMessage(WEBSITE_URL));
+    });
+  };
+
+  const handleVisitTools = () => {
+    Linking.openURL(TOOLS_URL).catch(() => {
+      Alert.alert(strings.about.toolsFailedTitle, strings.about.toolsFailedMessage(TOOLS_URL));
     });
   };
 
@@ -86,6 +93,16 @@ export function AboutScreen({ navigation }: Props) {
           accessibilityHint={strings.about.websiteButtonAccessibilityHint}
         >
           <Text style={styles.contactButtonText}>{strings.about.websiteButtonLabel}</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.contactButton}
+          onPress={handleVisitTools}
+          accessibilityRole="button"
+          accessibilityLabel={strings.about.toolsButtonLabel}
+          accessibilityHint={strings.about.toolsButtonAccessibilityHint}
+        >
+          <Text style={styles.contactButtonText}>{strings.about.toolsButtonLabel}</Text>
         </Pressable>
 
         <Pressable
