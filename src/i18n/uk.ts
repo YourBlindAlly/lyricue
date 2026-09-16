@@ -252,9 +252,10 @@ export const uk: Strings = {
     emptyText: 'Сетлистів поки немає. Натисніть «Новий сетлист», щоб створити перший.',
     activePlayingAccessibilityLabel: (name: string, current: number, total: number) =>
       `${name}, Відтворюється — пісня ${current} з ${total}`,
-    resumeHint: 'Двічі торкніться, щоб продовжити. Проведіть вгору або вниз, щоб припинити слідування цьому сетлисту.',
-    playHint: 'Двічі торкніться, щоб відтворити. Проведіть вгору або вниз, щоб видалити.',
+    resumeHint: 'Двічі торкніться, щоб продовжити. Проведіть вгору або вниз для редагування або припинення слідування.',
+    playHint: 'Двічі торкніться, щоб відтворити. Проведіть вгору або вниз для редагування або видалення.',
     stopFollowingActionLabel: 'Припинити слідування',
+    editActionLabel: 'Редагувати',
     playingStatusText: (current: number, total: number) => `Відтворюється — пісня ${current} з ${total}`,
     importFromDropboxLabel: 'Імпортувати з Dropbox',
   },
@@ -280,7 +281,7 @@ export const uk: Strings = {
 
   setlistCreator: {
     backButtonLabel: 'Назад',
-    heading: 'Новий сетлист',
+    heading: (isEditing: boolean) => (isEditing ? 'Редагувати сетлист' : 'Новий сетлист'),
     setlistNamePlaceholder: 'Назва сетлиста',
     songsInSetlistHeading: (count: number) => `Пісні в цьому сетлисті (${count})`,
     nothingAddedText: 'Ще нічого не додано — виберіть пісні зі списку нижче.',
@@ -290,7 +291,7 @@ export const uk: Strings = {
     entryAccessibilityLabel: (position: number, title: string) => `${position}. ${title}`,
     entryHint: 'Проведіть вгору або вниз для дій переміщення та видалення.',
     savingLabel: 'Збереження…',
-    saveSetlistLabel: 'Зберегти сетлист',
+    saveSetlistLabel: (isEditing: boolean) => (isEditing ? 'Зберегти зміни' : 'Зберегти сетлист'),
     searchPlaceholder: 'Пошук у ваших піснях',
     noSongsMatchText: 'Немає відповідних пісень.',
     addedAccessibilityLabel: (title: string) => `${title}, Додано`,
@@ -301,6 +302,7 @@ export const uk: Strings = {
     noSongsAddedAlertTitle: 'Не додано жодної пісні',
     noSongsAddedAlertMessage: 'Додайте хоча б одну пісню перед збереженням.',
     saveFailedAlertTitle: 'Помилка збереження',
+    couldntLoadForEditingAlertTitle: 'Не вдалося завантажити сетлист',
   },
 
   promptScreen: {

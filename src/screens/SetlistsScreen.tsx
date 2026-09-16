@@ -165,13 +165,22 @@ export function SetlistsScreen({ navigation }: Props) {
                     )}
                     accessibilityActions={
                       isActive
-                        ? [{ name: 'stop', label: strings.setlists.stopFollowingActionLabel }]
-                        : [{ name: 'delete', label: strings.setlists.deleteLabel }]
+                        ? [
+                            { name: 'stop', label: strings.setlists.stopFollowingActionLabel },
+                            { name: 'edit', label: strings.setlists.editActionLabel },
+                          ]
+                        : [
+                            { name: 'edit', label: strings.setlists.editActionLabel },
+                            { name: 'delete', label: strings.setlists.deleteLabel },
+                          ]
                     }
                     onAccessibilityAction={(event) => {
                       switch (event.nativeEvent.actionName) {
                         case 'stop':
                           clearSetlist();
+                          break;
+                        case 'edit':
+                          navigation.navigate('SetlistCreator', { editSetlist: item });
                           break;
                         case 'delete':
                           handleDelete(item);

@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppState } from '../state/AppStateContext';
-import { saveSetlist } from '../setlist/setlistStorage';
+import { deleteSetlist, loadSetlist, saveSetlist } from '../setlist/setlistStorage';
 import type { SetlistEntry } from '../setlist/setlistCsv';
 import type { Song } from '../types';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
@@ -20,13 +20,44 @@ function entryFor(song: Song): SetlistEntry {
   };
 }
 
-export function SetlistCreatorScreen({ navigation }: Props) {
+export function SetlistCreatorScreen({ navigation, route }: Props) {
   const strings = useStrings();
   const { library, reduceHints } = useAppState();
+  const editSetlist = route.params?.editSetlist;
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
   const [entries, setEntries] = useState<SetlistEntry[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  // Only meaningful while editing: whether the existing setlist's own data
+  // has loaded yet, so the search/add UI below (which reads `entries`)
+  // doesn't render against a still-empty list and let someone start adding
+  // songs to what looks like an empty setlist before the real one arrives.
+  const [isLoadingExisting, setIsLoadingExisting] = useState(!!editSetlist);
+
+  useEffect(() => {
+    if (!editSetlist) {
+      return;
+    }
+    let cancelled = false;
+    loadSetlist(editSetlist)
+      .then((setlist) => {
+        if (cancelled) return;
+        setName(setlist.name);
+        setEntries(setlist.entries);
+        setIsLoadingExisting(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        Alert.alert(strings.setlistCreator.couldntLoadForEditingAlertTitle, err instanceof Error ? err.message : String(err));
+        navigation.goBack();
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Deliberately run only once on mount — editSetlist identifies which
+    // setlist to load, not something that should re-trigger a reload if it
+    // happened to change identity across renders.
+  }, []);
 
   const addedPaths = useMemo(
     () => new Set(entries.map((e) => e.path).filter((p) => p.length > 0)),
@@ -88,6 +119,13 @@ export function SetlistCreatorScreen({ navigation }: Props) {
     setIsSaving(true);
     try {
       await saveSetlist({ name: name.trim(), entries });
+      // saveSetlist upserts by NAME — if this was an edit and the name got
+      // changed, that just created a second setlist under the new name
+      // rather than renaming the original, leaving the old one behind.
+      // Clean that up explicitly rather than orphaning it.
+      if (editSetlist && editSetlist.name !== name.trim()) {
+        await deleteSetlist(editSetlist);
+      }
       navigation.goBack();
     } catch (err) {
       Alert.alert(strings.setlistCreator.saveFailedAlertTitle, err instanceof Error ? err.message : String(err));
@@ -108,10 +146,14 @@ export function SetlistCreatorScreen({ navigation }: Props) {
           <Text style={styles.backLink}>{strings.setlistCreator.backButtonLabel}</Text>
         </Pressable>
         <Text style={styles.heading} accessibilityRole="header">
-          {strings.setlistCreator.heading}
+          {strings.setlistCreator.heading(!!editSetlist)}
         </Text>
       </View>
 
+      {isLoadingExisting ? (
+        <ActivityIndicator color="#fff" style={styles.spinner} />
+      ) : (
+        <>
       <TextInput
         style={styles.nameInput}
         value={name}
@@ -179,10 +221,10 @@ export function SetlistCreatorScreen({ navigation }: Props) {
         onPress={handleSave}
         disabled={isSaving}
         accessibilityRole="button"
-        accessibilityLabel={isSaving ? strings.setlistCreator.savingLabel : strings.setlistCreator.saveSetlistLabel}
+        accessibilityLabel={isSaving ? strings.setlistCreator.savingLabel : strings.setlistCreator.saveSetlistLabel(!!editSetlist)}
       >
         <Text style={styles.saveButtonText}>
-          {isSaving ? strings.setlistCreator.savingLabel : strings.setlistCreator.saveSetlistLabel}
+          {isSaving ? strings.setlistCreator.savingLabel : strings.setlistCreator.saveSetlistLabel(!!editSetlist)}
         </Text>
       </Pressable>
 
@@ -218,6 +260,8 @@ export function SetlistCreatorScreen({ navigation }: Props) {
           );
         }}
       />
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -227,6 +271,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
     padding: 20,
+  },
+  spinner: {
+    marginTop: 20,
   },
   headerRow: {
     flexDirection: 'row',

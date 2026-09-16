@@ -247,9 +247,10 @@ export const en = {
     emptyText: 'No setlists yet. Tap "New Setlist" to build your first one.',
     activePlayingAccessibilityLabel: (name: string, current: number, total: number) =>
       `${name}, Playing — song ${current} of ${total}`,
-    resumeHint: 'Double tap to resume. Swipe up or down to stop following this setlist.',
-    playHint: 'Double tap to play. Swipe up or down to delete.',
+    resumeHint: 'Double tap to resume. Swipe up or down for edit or stop-following actions.',
+    playHint: 'Double tap to play. Swipe up or down for edit or delete actions.',
     stopFollowingActionLabel: 'Stop Following',
+    editActionLabel: 'Edit',
     playingStatusText: (current: number, total: number) => `Playing — song ${current} of ${total}`,
     importFromDropboxLabel: 'Import from Dropbox',
   },
@@ -275,7 +276,7 @@ export const en = {
 
   setlistCreator: {
     backButtonLabel: 'Back',
-    heading: 'New Setlist',
+    heading: (isEditing: boolean): string => (isEditing ? 'Edit Setlist' : 'New Setlist'),
     setlistNamePlaceholder: 'Setlist name',
     songsInSetlistHeading: (count: number) => `Songs in this setlist (${count})`,
     nothingAddedText: 'Nothing added yet — pick songs from the list below.',
@@ -285,7 +286,7 @@ export const en = {
     entryAccessibilityLabel: (position: number, title: string) => `${position}. ${title}`,
     entryHint: 'Swipe up or down for move and remove actions.',
     savingLabel: 'Saving…',
-    saveSetlistLabel: 'Save Setlist',
+    saveSetlistLabel: (isEditing: boolean): string => (isEditing ? 'Save Changes' : 'Save Setlist'),
     searchPlaceholder: 'Search your songs',
     noSongsMatchText: 'No songs match.',
     addedAccessibilityLabel: (title: string) => `${title}, Added`,
@@ -296,6 +297,7 @@ export const en = {
     noSongsAddedAlertTitle: 'No songs added',
     noSongsAddedAlertMessage: 'Add at least one song before saving.',
     saveFailedAlertTitle: 'Save failed',
+    couldntLoadForEditingAlertTitle: 'Couldn’t load setlist',
   },
 
   promptScreen: {

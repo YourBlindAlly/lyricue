@@ -9,7 +9,7 @@ export type RootStackParamList = {
   LanguageVoices: undefined;
   DropboxBrowse: { path: string } | undefined;
   Setlists: undefined;
-  SetlistCreator: undefined;
+  SetlistCreator: { editSetlist?: { id: string; name: string } } | undefined;
   ImportSetlist: undefined;
   Search: undefined;
   About: undefined;
