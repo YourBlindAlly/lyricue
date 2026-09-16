@@ -18,6 +18,15 @@ export interface CommunityLibraryEnv {
 // Dropbox designed this as a public client identifier, not a secret).
 const DROPBOX_CLIENT_ID = '0iibd4asi022p7w';
 
+// Same list as SONG_EXTENSIONS in src/cloud/dropbox/dropboxApi.ts — kept as
+// a separate copy since this backend is a different TS project with its own
+// build, not because the two are meant to drift. Used to filter search
+// results so anything that ISN'T a real song file (e.g. the search-miss log
+// files below) can never show up as a match.
+const SONG_EXTENSIONS = ['.txt', '.cho', '.crd', '.chopro', '.chord', '.pro'];
+
+const SEARCH_MISSES_FOLDER = '/search-misses';
+
 export type CommunitySearchResult = {
   title: string;
   artist: string | null;
@@ -101,11 +110,61 @@ export async function searchCommunityLibrary(
   const data = (await res.json()) as {
     matches: { metadata: { metadata: { name: string; path_lower: string } } }[];
   };
-  return data.matches.map((m) => {
-    const { name, path_lower } = m.metadata.metadata;
-    const { title, artist, key } = parseCommunityFilename(name);
-    return { title, artist, key, path: path_lower };
+  return data.matches
+    .filter((m) => {
+      const { name, path_lower } = m.metadata.metadata;
+      // .txt is a legitimate song extension too (plain-text songs), so
+      // excluding the log folder by path is required in addition to the
+      // extension check below — extension alone wouldn't catch it.
+      if (path_lower.startsWith(SEARCH_MISSES_FOLDER.toLowerCase() + '/')) {
+        return false;
+      }
+      return SONG_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext));
+    })
+    .map((m) => {
+      const { name, path_lower } = m.metadata.metadata;
+      const { title, artist, key } = parseCommunityFilename(name);
+      return { title, artist, key, path: path_lower };
+    });
+}
+
+/**
+ * Records a search that came back with zero results, as its own small file
+ * under /search-misses — one file per miss (not one growing list appended
+ * to) specifically to avoid a download-modify-reupload race between two
+ * concurrent Worker requests missing at the same time, which a single
+ * shared file would be exposed to. Rusty can review these directly in the
+ * community Dropbox account, or ask for a consolidated report the same way
+ * the song-library curation scripts already do for other "raw files ->
+ * periodic consolidation pass" workflows in this project.
+ *
+ * Only ever logs the raw search text someone actually typed — the app's
+ * Search screen is a single combined "title or artist" field, not two
+ * separate ones, so there's no clean artist/title split to save that
+ * wasn't already lost at the point of typing.
+ *
+ * Best-effort: a logging failure must never break the actual search
+ * response the user is waiting on, so this is always called and awaited
+ * inside a try/catch at the call site, never allowed to throw outward.
+ */
+export async function logSearchMiss(env: CommunityLibraryEnv, query: string): Promise<void> {
+  const accessToken = await getAccessToken(env);
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const safeQuery = query.replace(/[/\\:*?"<>|]/g, '').trim().slice(0, 100);
+  const path = `${SEARCH_MISSES_FOLDER}/${timestamp} - ${safeQuery || 'blank'}.txt`;
+  const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({ path, mode: 'add', mute: true }),
+      'Content-Type': 'application/octet-stream',
+    },
+    body: query,
   });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Logging search miss failed (${res.status}): ${body}`);
+  }
 }
 
 /** Downloads one file's raw text content by its Dropbox path (from a search result). */

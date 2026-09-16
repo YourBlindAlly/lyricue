@@ -1,5 +1,6 @@
 import {
   fetchCommunityFile,
+  logSearchMiss,
   searchCommunityLibrary,
   type CommunityLibraryEnv,
 } from './communityLibrary';
@@ -45,6 +46,16 @@ async function handleSearch(request: Request, env: Env): Promise<Response> {
     // always used — see the git history of this file for the equivalent
     // AI-search-era logging this replaces.
     console.log(JSON.stringify({ event: 'library_search', query, resultCount: results.length, ms: Date.now() - startedAt }));
+    if (results.length === 0) {
+      // Best-effort, never allowed to affect the actual search response —
+      // a failure here just means one missed request to review later, not
+      // something worth showing the user or retrying.
+      try {
+        await logSearchMiss(env, query);
+      } catch (err) {
+        console.log(JSON.stringify({ event: 'search_miss_log_failed', query, error: err instanceof Error ? err.message : String(err) }));
+      }
+    }
     return json({ results });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
