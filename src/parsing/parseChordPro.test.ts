@@ -18,6 +18,16 @@ describe('parseChordPro', () => {
     expect(result.key).toBe('C');
   });
 
+  it('extracts capo from a {capo:} directive', () => {
+    const result = parseChordPro('{title: Heart of Worship}\n{key: Eb}\n{capo: 1}\n[D]I simply come');
+    expect(result.capo).toBe('1');
+  });
+
+  it('returns a null capo when no {capo:} directive is present', () => {
+    const result = parseChordPro('{title: Amazing Grace}\n[G]Amazing grace');
+    expect(result.capo).toBeNull();
+  });
+
   it('keeps the FIRST {t:} line as the title when a second {t:} line holds the artist instead', () => {
     // Real file pattern (Space Oddity - David Bowie.pro): some chord sheets
     // in the wild use a second {t:} line for the artist rather than
@@ -84,10 +94,11 @@ describe('parseChordPro', () => {
     expect(result.lines).toEqual(['Real line']);
   });
 
-  it('returns null title/key when none are present', () => {
+  it('returns null title/key/capo when none are present', () => {
     const result = parseChordPro('Just a plain lyric line');
     expect(result.title).toBeNull();
     expect(result.key).toBeNull();
+    expect(result.capo).toBeNull();
   });
 
   it('keeps chord positions in chordedLines while lines has the stripped text', () => {

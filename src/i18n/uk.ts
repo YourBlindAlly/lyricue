@@ -304,7 +304,12 @@ export const uk: Strings = {
   },
 
   promptScreen: {
-    keyOfSuffix: (key: string) => ` — Тональність ${key}`,
+    keyAndCapoSuffix: (key?: string, capo?: string) => {
+      const parts: string[] = [];
+      if (key) parts.push(`Тональність ${key}`);
+      if (capo) parts.push(`Капо ${capo}`);
+      return parts.length > 0 ? ` — ${parts.join(', ')}` : '';
+    },
     fullSetlistText: (name: string, current: number, total: number) => `${name} — пісня ${current} з ${total}`,
     pedalConnectedStatusLabel: 'Педаль: Підключена',
     pedalNotConnectedStatusLabel: 'Педаль: Не підключена',

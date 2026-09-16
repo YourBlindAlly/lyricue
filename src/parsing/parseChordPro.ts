@@ -9,6 +9,7 @@ import type { SongLanguageCode } from '../speech/languageDetection';
 export type ParsedChordProSong = {
   title: string | null;
   key: string | null;
+  capo: string | null;
   lines: string[];
   chordedLines: ChordedWord[][];
   sections: SectionMarker[];
@@ -40,6 +41,7 @@ const SECTION_STARTS: { names: string[]; label: string }[] = [
 
 const TITLE_NAMES = ['title', 't'];
 const KEY_NAMES = ['key'];
+const CAPO_NAMES = ['capo'];
 const LANGUAGE_NAMES = ['lang', 'language'];
 
 // Captures the directive name (up to the first ':' or '}') and an optional
@@ -67,6 +69,7 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
   const sections: SectionMarker[] = [];
   let title: string | null = null;
   let key: string | null = null;
+  let capo: string | null = null;
   let language: SongLanguageCode | null = null;
   // Which end-directive names would close the content-drop block currently
   // in progress, or null when not inside one. Only one can be active at a
@@ -121,6 +124,10 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
         key = arg || key;
         continue;
       }
+      if (CAPO_NAMES.includes(name)) {
+        capo = arg || capo;
+        continue;
+      }
       if (LANGUAGE_NAMES.includes(name)) {
         const normalized = normalizeLanguageName(arg);
         if (normalized) language = normalized;
@@ -161,5 +168,5 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
     }
   }
 
-  return { title, key, lines, chordedLines, sections, language };
+  return { title, key, capo, lines, chordedLines, sections, language };
 }

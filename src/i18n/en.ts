@@ -299,7 +299,12 @@ export const en = {
   },
 
   promptScreen: {
-    keyOfSuffix: (key: string) => ` — Key of ${key}`,
+    keyAndCapoSuffix: (key?: string, capo?: string) => {
+      const parts: string[] = [];
+      if (key) parts.push(`Key of ${key}`);
+      if (capo) parts.push(`Capo ${capo}`);
+      return parts.length > 0 ? ` — ${parts.join(', ')}` : '';
+    },
     fullSetlistText: (name: string, current: number, total: number) => `${name} — song ${current} of ${total}`,
     pedalConnectedStatusLabel: 'Pedal: Connected',
     pedalNotConnectedStatusLabel: 'Pedal: Not Connected',

@@ -38,6 +38,34 @@ describe('migrateSong', () => {
     expect(migrated.key).toBe('G');
   });
 
+  it('backfills capo by re-parsing rawText, for a song saved before capo directives were recognized', () => {
+    // Simulates a real ChordPro song already in the library from before the
+    // {capo:} directive was parsed at all — it was always in the file's raw
+    // text, just never surfaced onto the Song object until re-parsed.
+    const song = makeSong({
+      title: 'Heart of Worship',
+      source: { type: 'dropbox', path: '/Heart of Worship - Matt Redman.pro' },
+      rawText: '{title: Heart of Worship}\n{key: Eb}\n{capo: 1}\n[D]I simply come',
+      lines: ['I simply come'],
+      chordedLines: [[{ chord: 'D', text: 'I' }, { chord: null, text: 'simply' }, { chord: null, text: 'come' }]],
+      capo: undefined,
+    });
+    const migrated = migrateSong(song);
+    expect(migrated.capo).toBe('1');
+  });
+
+  it('does not overwrite an already-set capo when migrating', () => {
+    const song = makeSong({
+      source: { type: 'dropbox', path: '/Song.pro' },
+      rawText: '{capo: 2}\n[D]A line',
+      lines: ['A line'],
+      chordedLines: [[{ chord: 'D', text: 'A' }, { chord: null, text: 'line' }]],
+      capo: '5',
+    });
+    const migrated = migrateSong(song);
+    expect(migrated.capo).toBe('5');
+  });
+
   // The core behavior this whole module exists for: parsing logic (junk-line
   // filtering, section handling, etc.) keeps improving after a song was
   // first imported, and re-deriving lines/chordedLines from rawText on every

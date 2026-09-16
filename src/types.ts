@@ -19,6 +19,8 @@ export type Song = {
   title: string;
   /** Musical key, when known (e.g. from a ChordPro file's {key: C} directive). */
   key?: string;
+  /** Capo position, when known (e.g. from a ChordPro file's {capo: 2} directive). */
+  capo?: string;
   /**
    * Language this song should be spoken in — either a manual {lang: ...}
    * directive or an auto-detected guess from the lyric text, re-derived

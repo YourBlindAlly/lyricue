@@ -49,6 +49,7 @@ function reparse(song: Song): Song {
       chordedLines: parsed.chordedLines,
       sections: parsed.sections,
       key: song.key ?? parsed.key ?? undefined,
+      capo: song.capo ?? parsed.capo ?? undefined,
       language: parsed.language ?? song.language ?? null,
     };
   }

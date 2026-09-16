@@ -18,6 +18,7 @@ function assemble(
   sections: SectionMarker[],
   title: string,
   key: string | undefined,
+  capo: string | undefined,
   language: SongLanguageCode | null,
   source: SongSource
 ): Song | null {
@@ -28,6 +29,7 @@ function assemble(
     id: makeId(),
     title,
     key,
+    capo,
     language,
     rawText,
     lines,
@@ -55,7 +57,7 @@ export function buildSong(rawText: string, title: string | undefined, source: So
   }
   const { lines, chordedLines, sections, language } = parseSong(rawText);
   const resolvedTitle = title?.trim() || lines[0] || '';
-  return assemble(rawText, lines, chordedLines, sections, resolvedTitle, undefined, language, source);
+  return assemble(rawText, lines, chordedLines, sections, resolvedTitle, undefined, undefined, language, source);
 }
 
 export function buildChordProSong(
@@ -63,9 +65,19 @@ export function buildChordProSong(
   fallbackTitle: string,
   source: SongSource
 ): Song | null {
-  const { title, key, lines, chordedLines, sections, language } = parseChordPro(rawText);
+  const { title, key, capo, lines, chordedLines, sections, language } = parseChordPro(rawText);
   const resolvedTitle = title?.trim() || fallbackTitle.trim() || lines[0] || '';
-  return assemble(rawText, lines, chordedLines, sections, resolvedTitle, key ?? undefined, language, source);
+  return assemble(
+    rawText,
+    lines,
+    chordedLines,
+    sections,
+    resolvedTitle,
+    key ?? undefined,
+    capo ?? undefined,
+    language,
+    source
+  );
 }
 
 function extensionOf(fileName: string): string {

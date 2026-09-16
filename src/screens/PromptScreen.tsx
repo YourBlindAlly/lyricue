@@ -292,7 +292,7 @@ export function PromptScreen({ navigation }: Props) {
     if (!song || spokenLines.lines.length === 0) {
       return [];
     }
-    return [buildSongAnnouncement(song.title, song.key), ...spokenLines.lines];
+    return [buildSongAnnouncement(song.title, song.key, song.capo), ...spokenLines.lines];
   }, [song, spokenLines]);
 
   // Parallel to displayLines, but as speech segments (plain text + optional
@@ -304,7 +304,7 @@ export function PromptScreen({ navigation }: Props) {
     if (!song || spokenLines.lines.length === 0) {
       return [];
     }
-    return [[{ text: buildSongAnnouncement(song.title, song.key) }], ...spokenLines.segments];
+    return [[{ text: buildSongAnnouncement(song.title, song.key, song.capo) }], ...spokenLines.segments];
   }, [song, spokenLines]);
 
   // Set when a double-press just jumped to a different setlist song, so the
@@ -502,7 +502,7 @@ export function PromptScreen({ navigation }: Props) {
         <View style={styles.headerTextBlock}>
           <Text style={styles.songTitle} numberOfLines={1}>
             {song.title}
-            {song.key ? strings.promptScreen.keyOfSuffix(song.key) : ''}
+            {strings.promptScreen.keyAndCapoSuffix(song.key, song.capo)}
           </Text>
           {activeSetlist ? (
             // A View wrapping the Text, not the accessibility/adjustable
