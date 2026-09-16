@@ -27,6 +27,55 @@ const SONG_EXTENSIONS = ['.txt', '.cho', '.crd', '.chopro', '.chord', '.pro'];
 
 const SEARCH_MISSES_FOLDER = '/search-misses';
 
+// Songs shared from the web Lyric Editor's "Share with the community"
+// checkbox land here, NOT directly in the searchable library root — this is
+// a public, unauthenticated endpoint (the web editor has no way to hold a
+// secret, since anyone can view its page source), so anything it accepts
+// gets a human review pass before it's promoted into the real library.
+const PENDING_CONTRIBUTIONS_FOLDER = '/pending-contributions';
+const MAX_CONTRIBUTION_BYTES = 200_000;
+
+// A control character (anything outside normal printable text plus
+// newline/carriage-return/tab) is something no real hand-typed or
+// web-copied song text ever contains. A cheap, high-signal way to reject a
+// binary or obfuscated payload submitted to the public /submit endpoint
+// without needing to understand what it actually is.
+const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F]/;
+
+export function looksLikePlainText(content: string): boolean {
+  return !CONTROL_CHAR_RE.test(content);
+}
+
+// Real song text is always broken across multiple lines of reasonable
+// length. A single giant line (or only one or two lines total) is how
+// minified/obfuscated payloads usually look, not how anyone pastes or types
+// a song — so this catches a different, complementary shape of abuse than
+// the control-character check above.
+const MAX_LINE_LENGTH = 2000;
+const MIN_LINE_COUNT = 3;
+
+export function looksLikeSongText(content: string): boolean {
+  const lines = content.split(/\r\n|\r|\n/);
+  if (lines.length < MIN_LINE_COUNT) return false;
+  return lines.every((line) => line.length <= MAX_LINE_LENGTH);
+}
+
+// Same chord-bracket shape the app and the web Lyric Editor both already
+// use to decide ChordPro vs. plain text — reused here so the server decides
+// the real file extension itself instead of trusting whatever the client
+// (or a direct HTTP request bypassing the client entirely) claims it is.
+const CHORD_BRACKET_RE = /\[([^\]]*)\]/g;
+const CHORD_NAME_RE = /^[A-Ga-g][#b]?(maj|min|dim|aug|sus|add)?[0-9]*m?[0-9]*(\/[A-Ga-g][#b]?)?$/;
+
+export function decideExtension(content: string): '.cho' | '.txt' {
+  CHORD_BRACKET_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = CHORD_BRACKET_RE.exec(content)) !== null) {
+    if (CHORD_NAME_RE.test(m[1].trim())) return '.cho';
+  }
+  return '.txt';
+}
+
 export type CommunitySearchResult = {
   title: string;
   artist: string | null;
@@ -166,6 +215,41 @@ export async function logSearchMiss(env: CommunityLibraryEnv, query: string): Pr
     throw new Error(`Logging search miss failed (${res.status}): ${body}`);
   }
 }
+
+/**
+ * Uploads a song shared from the web Lyric Editor into the pending-review
+ * holding folder (never straight into the searchable library — see the
+ * comment on PENDING_CONTRIBUTIONS_FOLDER above). autorename:true so two
+ * different people sharing a same-named song both land safely instead of
+ * one upload failing outright on a name collision; Rusty sorts out any
+ * actual duplicates when he reviews this folder.
+ */
+export async function submitCommunityContribution(
+  env: CommunityLibraryEnv,
+  filename: string,
+  content: string
+): Promise<{ path: string }> {
+  const accessToken = await getAccessToken(env);
+  const safeName = filename.replace(/[\\/:*?"<>|]/g, '').trim() || 'untitled.txt';
+  const path = `${PENDING_CONTRIBUTIONS_FOLDER}/${safeName}`;
+  const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({ path, mode: 'add', autorename: true, mute: true }),
+      'Content-Type': 'application/octet-stream',
+    },
+    body: content,
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Community contribution upload failed (${res.status}): ${body}`);
+  }
+  const data = (await res.json()) as { path_lower: string };
+  return { path: data.path_lower };
+}
+
+export { MAX_CONTRIBUTION_BYTES };
 
 /** Downloads one file's raw text content by its Dropbox path (from a search result). */
 export async function fetchCommunityFile(env: CommunityLibraryEnv, path: string): Promise<string> {
