@@ -1,5 +1,4 @@
 import {
-  deleteDropboxFile,
   downloadDropboxFile,
   listDropboxFolder,
   uploadDropboxFile,
@@ -42,14 +41,6 @@ async function backupToDropbox(stored: StoredSetlist): Promise<void> {
   }
 }
 
-async function removeDropboxBackup(name: string): Promise<void> {
-  try {
-    await deleteDropboxFile(dropboxPathFor(name));
-  } catch {
-    // Intentionally silent — see backupToDropbox's doc comment.
-  }
-}
-
 export async function listSetlists(): Promise<SetlistSummary[]> {
   const stored = await loadLocalSetlists();
   return stored.map((s) => ({ id: s.id, name: s.name }));
@@ -82,9 +73,19 @@ export async function saveSetlist(setlist: Setlist): Promise<void> {
   void backupToDropbox(stored);
 }
 
+/**
+ * Deletes a setlist locally ONLY — deliberately leaves its Dropbox backup
+ * alone. Confirmed with Rusty 2026-09-17 after he deleted a setlist on his
+ * phone and, with the old behavior (which also deleted the Dropbox copy),
+ * lost his only way to get it back; it had to be rebuilt by hand from
+ * conversation history. A stray backup file costs nothing and Dropbox's
+ * own /setlists folder isn't otherwise something Rusty browses, so keeping
+ * it as a recovery point has no real downside — deleting a setlist here
+ * should only mean "stop showing this in my list," not "destroy the only
+ * other copy of it that exists."
+ */
 export async function deleteSetlist(summary: SetlistSummary): Promise<void> {
   await removeLocalSetlist(summary.id);
-  void removeDropboxBackup(summary.name);
 }
 
 /**

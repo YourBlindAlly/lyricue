@@ -84,14 +84,23 @@ describe('loadSetlist', () => {
 });
 
 describe('deleteSetlist', () => {
-  it('removes it locally even if the Dropbox-side delete fails', async () => {
-    mockDeleteDropboxFile.mockRejectedValue(new Error('network down'));
+  it('removes it locally', async () => {
     await saveSetlist({ name: 'Gig Set', entries: [] });
     const [summary] = await listSetlists();
 
     await deleteSetlist(summary);
 
     expect(await listSetlists()).toEqual([]);
+  });
+
+  it('deliberately leaves the Dropbox backup untouched, as a recovery point', async () => {
+    await saveSetlist({ name: 'Gig Set', entries: [] });
+    const [summary] = await listSetlists();
+    mockDeleteDropboxFile.mockClear();
+
+    await deleteSetlist(summary);
+
+    expect(mockDeleteDropboxFile).not.toHaveBeenCalled();
   });
 });
 
