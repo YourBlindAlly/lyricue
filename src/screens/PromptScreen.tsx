@@ -428,7 +428,13 @@ export function PromptScreen({ navigation }: Props) {
       playSongChangeFeedback();
       speakNow(direction === 'next' ? strings.promptScreen.nextSongAccessibilityLabel : strings.promptScreen.previousSongAccessibilityLabel);
       setlistJumpPendingRef.current = true;
-      void advanceSetlist(direction).then((newSong) => {
+      // currentIndex > 0 means at least one real lyric line was reached
+      // past the title/key announcement (index 0) — random-next mode's
+      // "played this cycle" tracking only counts the song being left if
+      // this is true, so landing on a song and immediately jumping away
+      // again doesn't wrongly cross it off as played.
+      const wasEngaged = currentIndex > 0;
+      void advanceSetlist(direction, { wasEngaged }).then((newSong) => {
         if (newSong) return; // the effect above will announce it once displayLines updates
         setlistJumpPendingRef.current = false;
         if (isFocusedRef.current) {
@@ -440,7 +446,7 @@ export function PromptScreen({ navigation }: Props) {
         }
       });
     },
-    [activeSetlist, advanceSetlist, speakNow, strings]
+    [activeSetlist, advanceSetlist, currentIndex, speakNow, strings]
   );
 
   const { isPedalConnected } = usePedalInput({

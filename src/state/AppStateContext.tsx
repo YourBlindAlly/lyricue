@@ -32,15 +32,20 @@ type AppStateValue = {
    * no setlist is active or the edge of the list is reached (nothing
    * changed) — callers use this to announce the new song directly rather
    * than reading back a possibly-stale `activeSong` closure.
+   *
+   * `wasEngaged` (random-next mode only) says whether the song being LEFT
+   * should count as genuinely played — the caller's own call, based on
+   * whether the singer actually advanced into its lyrics rather than just
+   * landing on it and immediately jumping away again. Only a genuinely
+   * played song is excluded from random-next's "not yet played this cycle"
+   * pool; a merely-passed-through song stays eligible.
    */
-  advanceSetlist: (direction: 'next' | 'previous') => Promise<Song | null>;
+  advanceSetlist: (direction: 'next' | 'previous', options?: { wasEngaged?: boolean }) => Promise<Song | null>;
   clearSetlist: () => Promise<void>;
   /**
-   * Turns the active setlist's random-next mode on or off. Turning it on
-   * seeds the "already played this cycle" tracking with just the current
-   * song, so the very next random pick can't immediately repeat it;
-   * turning it off drops that tracking since it's meaningless while random
-   * mode is off. No-op if no setlist is active.
+   * Turns the active setlist's random-next mode on or off. No-op if no
+   * setlist is active. Turning it off drops the "played this cycle"
+   * tracking since it's meaningless while random mode is off.
    */
   setRandomSetlist: (enabled: boolean) => Promise<void>;
   /** Off by default. When on, VoiceOver usage hints ("swipe up for faster") are stripped from every control app-wide — see src/speech/reduceHintsPreference.ts. */
@@ -112,7 +117,7 @@ export function AppStateProvider({
   );
 
   const advanceSetlist = useCallback(
-    async (direction: 'next' | 'previous'): Promise<Song | null> => {
+    async (direction: 'next' | 'previous', options?: { wasEngaged?: boolean }): Promise<Song | null> => {
       if (!activeSetlist) {
         return null;
       }
@@ -122,11 +127,13 @@ export function AppStateProvider({
         const resolvableIndices = setlist.entries
           .map((_, i) => i)
           .filter((i) => resolveSetlistEntry(setlist.entries[i], library) !== null);
-        const picked = pickRandomSetlistIndex(
-          resolvableIndices,
-          currentIndex,
-          activeSetlist.playedIndices ?? [currentIndex]
-        );
+        // The song being LEFT only counts toward "played this cycle" if it
+        // was actually engaged with — see the doc comment on advanceSetlist
+        // in the context type above for why this can't just always be true.
+        const basePlayed = activeSetlist.playedIndices ?? [];
+        const playedSoFar =
+          options?.wasEngaged && !basePlayed.includes(currentIndex) ? [...basePlayed, currentIndex] : basePlayed;
+        const picked = pickRandomSetlistIndex(resolvableIndices, currentIndex, playedSoFar);
         if (!picked) {
           return null;
         }
@@ -168,10 +175,14 @@ export function AppStateProvider({
       if (!activeSetlist) {
         return;
       }
+      // Starts empty either way: pickRandomSetlistIndex already excludes
+      // the current song from candidates unconditionally, so there's no
+      // need to presume it "played" just because it happened to be playing
+      // when random mode was switched on.
       const state: ActiveSetlistState = {
         ...activeSetlist,
         randomEnabled: enabled,
-        playedIndices: enabled ? [activeSetlist.currentIndex] : undefined,
+        playedIndices: enabled ? [] : undefined,
       };
       setActiveSetlistState(state);
       await saveActiveSetlist(state);
