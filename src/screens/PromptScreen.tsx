@@ -315,6 +315,21 @@ export function PromptScreen({ navigation }: Props) {
   // otherwise clobber the other's idea of where currentIndex should land.
   const setlistJumpPendingRef = useRef(false);
 
+  // Guards jumpSetlistSong below against overlapping calls — a jump does
+  // real async work (saving state, writing to storage) that takes a real,
+  // if small, amount of time. Without this, swiping the "song N of M"
+  // control quickly enough fires a second jump before the first one's
+  // async work (and the state update it produces) has landed, so both
+  // calls compute their target from the SAME stale starting song — in
+  // random mode this could even pick two different random songs from an
+  // identical candidate pool, with only the one that happens to resolve
+  // last actually sticking. The visible result was fast swipes skipping or
+  // jumping past songs instead of moving one at a time (Rusty's real
+  // report, 2026-09-17). A plain ref, not state — this needs to block a
+  // synchronous re-entrant call within the same tick, before a re-render
+  // could ever happen.
+  const setlistJumpInFlightRef = useRef(false);
+
   // A back or forward press's meaning depends on recent press history (see
   // repeatController.ts for the full rules), so it needs one instance that
   // persists across presses, not fresh state each render. Reset alongside
@@ -424,7 +439,8 @@ export function PromptScreen({ navigation }: Props) {
   // all behave identically (same interrupt, same sound, same announcement).
   const jumpSetlistSong = useCallback(
     (direction: 'next' | 'previous') => {
-      if (!isFocusedRef.current || !activeSetlist) return;
+      if (!isFocusedRef.current || !activeSetlist || setlistJumpInFlightRef.current) return;
+      setlistJumpInFlightRef.current = true;
       playSongChangeFeedback();
       speakNow(direction === 'next' ? strings.promptScreen.nextSongAccessibilityLabel : strings.promptScreen.previousSongAccessibilityLabel);
       setlistJumpPendingRef.current = true;
@@ -434,17 +450,21 @@ export function PromptScreen({ navigation }: Props) {
       // this is true, so landing on a song and immediately jumping away
       // again doesn't wrongly cross it off as played.
       const wasEngaged = currentIndex > 0;
-      void advanceSetlist(direction, { wasEngaged }).then((newSong) => {
-        if (newSong) return; // the effect above will announce it once displayLines updates
-        setlistJumpPendingRef.current = false;
-        if (isFocusedRef.current) {
-          speakNow(
-            direction === 'next'
-              ? strings.promptScreen.noMoreSongsInSetlistAnnouncement
-              : strings.promptScreen.alreadyAtFirstSongAnnouncement
-          );
-        }
-      });
+      advanceSetlist(direction, { wasEngaged })
+        .then((newSong) => {
+          if (newSong) return; // the effect above will announce it once displayLines updates
+          setlistJumpPendingRef.current = false;
+          if (isFocusedRef.current) {
+            speakNow(
+              direction === 'next'
+                ? strings.promptScreen.noMoreSongsInSetlistAnnouncement
+                : strings.promptScreen.alreadyAtFirstSongAnnouncement
+            );
+          }
+        })
+        .finally(() => {
+          setlistJumpInFlightRef.current = false;
+        });
     },
     [activeSetlist, advanceSetlist, currentIndex, speakNow, strings]
   );
