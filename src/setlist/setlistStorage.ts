@@ -118,3 +118,52 @@ export async function importSetlistFromDropbox(entry: DropboxEntry): Promise<Set
   await saveSetlist(setlist);
   return setlist;
 }
+
+/**
+ * Best-effort, silent sync: for every setlist that already exists locally,
+ * checks whether Dropbox's own copy has different content — e.g. it was
+ * edited from the web Setlist Builder, or by hand — and if so, pulls the
+ * change in automatically. Confirmed with Rusty 2026-09-17 as the wanted
+ * behavior, so an edit made anywhere else shows up here without a manual
+ * re-import.
+ *
+ * Deliberately never CREATES a new local setlist this way — only refreshes
+ * ones already in the list, so a stray or unrelated CSV someone else drops
+ * into the same Dropbox folder can't silently clutter it; picking up a
+ * brand new setlist for the first time still goes through the explicit
+ * Import from Dropbox screen. Silently does nothing at all if Dropbox
+ * isn't reachable, same as every other best-effort Dropbox operation here.
+ *
+ * Returns the setlists that actually changed, so a caller can refresh
+ * anything derived from the old content (e.g. an in-progress setlist
+ * session that's currently following one of them).
+ */
+export async function syncSetlistsFromDropbox(): Promise<Setlist[]> {
+  let dropboxFiles: DropboxEntry[];
+  try {
+    dropboxFiles = await listDropboxSetlistFiles();
+  } catch {
+    return [];
+  }
+  const local = await loadLocalSetlists();
+  const changed: Setlist[] = [];
+  for (const stored of local) {
+    const expectedPath = dropboxPathFor(stored.name);
+    const match = dropboxFiles.find((f) => f.path.toLowerCase() === expectedPath);
+    if (!match) {
+      continue;
+    }
+    try {
+      const csv = await downloadDropboxFile(match.path);
+      const entries = parseSetlistCsv(csv);
+      if (JSON.stringify(entries) === JSON.stringify(stored.entries)) {
+        continue; // identical — nothing to do
+      }
+      await upsertLocalSetlist({ ...stored, entries, updatedAt: Date.now() });
+      changed.push({ name: stored.name, entries });
+    } catch {
+      // Best-effort — skip this one, local copy stays as-is.
+    }
+  }
+  return changed;
+}

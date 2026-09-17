@@ -1,10 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppState } from '../state/AppStateContext';
-import { deleteSetlist, listSetlists, loadSetlist, type SetlistSummary } from '../setlist/setlistStorage';
+import {
+  deleteSetlist,
+  listSetlists,
+  loadSetlist,
+  syncSetlistsFromDropbox,
+  type SetlistSummary,
+} from '../setlist/setlistStorage';
 import { hintOrNone } from '../speech/reduceHintsPreference';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
@@ -13,16 +19,49 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Setlists'>;
 
 export function SetlistsScreen({ navigation }: Props) {
   const strings = useStrings();
-  const { activeSetlist, startSetlist, clearSetlist, reduceHints } = useAppState();
+  const appState = useAppState();
+  const { activeSetlist, startSetlist, clearSetlist, reduceHints } = appState;
   const [setlists, setSetlists] = useState<SetlistSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingOne, setIsLoadingOne] = useState(false);
+
+  // Read via a ref inside refresh (below) rather than as a direct
+  // dependency, so refresh itself keeps a stable identity — its own
+  // best-effort Dropbox sync can update activeSetlist, and taking it as a
+  // dependency would re-run the mount/focus effects that call refresh
+  // every time that happens, which is unnecessary churn, not a correctness
+  // problem, but avoided cleanly this way.
+  const appStateRef = useRef(appState);
+  appStateRef.current = appState;
 
   const refresh = useCallback(() => {
     setSetlists(null);
     setError(null);
     listSetlists()
-      .then(setSetlists)
+      .then((summaries) => {
+        setSetlists(summaries);
+        // Best-effort and silent — pulls in a setlist edited from the web
+        // Setlist Builder (or anything else writing into the same Dropbox
+        // /setlists folder) without needing a manual re-import. Confirmed
+        // with Rusty 2026-09-17 as the wanted behavior. Never blocks
+        // showing the local list first; this just quietly refreshes it
+        // again afterward if anything actually changed.
+        syncSetlistsFromDropbox()
+          .then((changed) => {
+            if (changed.length === 0) {
+              return;
+            }
+            listSetlists().then(setSetlists);
+            const { activeSetlist: current, startSetlist: restart } = appStateRef.current;
+            const activeChanged = current && changed.find((s) => s.name === current.setlist.name);
+            if (activeChanged) {
+              void restart(activeChanged);
+            }
+          })
+          .catch(() => {
+            // Silent — see syncSetlistsFromDropbox's own doc comment.
+          });
+      })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, []);
 

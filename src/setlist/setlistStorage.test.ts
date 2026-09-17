@@ -21,6 +21,7 @@ import {
   listSetlists,
   loadSetlist,
   saveSetlist,
+  syncSetlistsFromDropbox,
 } from './setlistStorage';
 
 beforeEach(async () => {
@@ -113,6 +114,54 @@ describe('listDropboxSetlistFiles', () => {
     const files = await listDropboxSetlistFiles();
     expect(mockListDropboxFolder).toHaveBeenCalledWith('/setlists', ['.csv']);
     expect(files).toEqual([{ name: 'Gig Set.csv', path: '/setlists/gig set.csv', isFolder: false }]);
+  });
+});
+
+describe('syncSetlistsFromDropbox', () => {
+  it('pulls in a change made directly in Dropbox for a setlist that already exists locally', async () => {
+    await saveSetlist({ name: 'Gig Set', entries: [{ title: 'Old Song', path: '/old.pro' }] });
+    mockListDropboxFolder.mockResolvedValue([
+      { name: 'Gig Set.csv', path: '/setlists/gig set.csv', isFolder: false },
+    ]);
+    mockDownloadDropboxFile.mockResolvedValue('Title,Path\r\nNew Song,/new.pro');
+
+    const changed = await syncSetlistsFromDropbox();
+
+    expect(changed).toEqual([{ name: 'Gig Set', entries: [{ title: 'New Song', path: '/new.pro' }] }]);
+    const [summary] = await listSetlists();
+    const loaded = await loadSetlist(summary);
+    expect(loaded.entries).toEqual([{ title: 'New Song', path: '/new.pro' }]);
+  });
+
+  it('does not create a new local setlist for a Dropbox file with no local match', async () => {
+    mockListDropboxFolder.mockResolvedValue([
+      { name: 'Brand New.csv', path: '/setlists/brand new.csv', isFolder: false },
+    ]);
+
+    const changed = await syncSetlistsFromDropbox();
+
+    expect(changed).toEqual([]);
+    expect(await listSetlists()).toEqual([]);
+    expect(mockDownloadDropboxFile).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the Dropbox content is identical to the local copy', async () => {
+    await saveSetlist({ name: 'Gig Set', entries: [{ title: 'Song A', path: '/a.pro' }] });
+    mockListDropboxFolder.mockResolvedValue([
+      { name: 'Gig Set.csv', path: '/setlists/gig set.csv', isFolder: false },
+    ]);
+    mockDownloadDropboxFile.mockResolvedValue('Title,Path\r\nSong A,/a.pro');
+
+    const changed = await syncSetlistsFromDropbox();
+
+    expect(changed).toEqual([]);
+  });
+
+  it('resolves with no changes rather than throwing when Dropbox is unreachable', async () => {
+    await saveSetlist({ name: 'Gig Set', entries: [] });
+    mockListDropboxFolder.mockRejectedValue(new Error('not connected'));
+
+    await expect(syncSetlistsFromDropbox()).resolves.toEqual([]);
   });
 });
 
