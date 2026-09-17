@@ -89,6 +89,40 @@ describe('tokenizeChordedLine', () => {
   it('handles an empty line', () => {
     expect(tokenizeChordedLine('')).toEqual([]);
   });
+
+  it('ignores a bracketed section label rather than treating it as a chord', () => {
+    expect(tokenizeChordedLine('[Chorus] [G]Amazing grace')).toEqual([
+      { chord: 'G', text: 'Amazing' },
+      { chord: null, text: 'grace' },
+    ]);
+  });
+
+  it('drops bracket-wrapped bar/rhythm notation entirely instead of producing empty-text pseudo-chords', () => {
+    // Real bug found live 2026-09-17 ("Have You Ever Seen the Rain") — a
+    // scraped source wrote its instrumental bar line as bracket-wrapped bar
+    // and dash characters glued together with no spaces, e.g.
+    // "[|][Am][|][-][|][C][|]". Every bracket used to be treated as a
+    // chord unconditionally, so each "|"/"-" became its own chord token
+    // with nothing to attach it to (nothing real is ever glued to a bar
+    // character), producing a chain of {chord: '|', text: ''}-style
+    // entries. Heard live as "a strange pause" mid-line — either the app
+    // tried to speak the bogus chord name with chords on, or the sequence
+    // forced a string of unnatural chunk breaks either way. None of it
+    // should produce any ChordedWord at all, real or empty.
+    expect(tokenizeChordedLine('Been that way for [C]all my time. [|][Am][|][-][|][C][|]')).toEqual([
+      { chord: null, text: 'Been' },
+      { chord: null, text: 'that' },
+      { chord: null, text: 'way' },
+      { chord: null, text: 'for' },
+      { chord: 'C', text: 'all' },
+      { chord: null, text: 'my' },
+      { chord: null, text: 'time.' },
+    ]);
+  });
+
+  it('drops a standalone line made entirely of bar/rhythm notation, producing no words at all', () => {
+    expect(tokenizeChordedLine('[|][Am][|][-][|][C][|][-][|][Em][|]')).toEqual([]);
+  });
 });
 
 describe('tokenizePlainLine', () => {

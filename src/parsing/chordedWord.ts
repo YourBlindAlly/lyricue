@@ -1,3 +1,5 @@
+import { isChordName } from './mergeChordOnlyLines';
+
 /** One lyric word, with the chord that sits immediately before it in the source, if any. */
 export type ChordedWord = { chord: string | null; text: string };
 
@@ -47,7 +49,23 @@ export function tokenizeChordedLine(rawLine: string): ChordedWord[] {
     const start = match.index;
     const end = start + full.length;
     if (chordGroup !== undefined) {
-      tokens.push({ kind: 'chord', text: chordGroup.trim(), start, end });
+      // A bracketed token that isn't a real chord name — a section label
+      // ("[Chorus]"), or (the real case found live 2026-09-17) leftover
+      // bar/rhythm notation some scraped sources write as bracket-wrapped
+      // bar and dash characters, e.g. "[|][Am][|][-][|][C][|]" — is not a
+      // chord and never was meant to be spoken. Treating every bracket as
+      // a chord unconditionally produced a chain of degenerate,
+      // empty-text "chord" entries for a run like that (nothing real ever
+      // glues to a "|" or "-"), which either got literally mispronounced
+      // with chords on, or forced a string of unnatural chunk breaks with
+      // chords off either way — Rusty heard this as "a strange pause" in
+      // the middle of a line. Dropped entirely here instead: same
+      // treatment parseChordPro.ts's own plain-text stripping already
+      // gives any non-chord bracket, just applied at the word-tokenizing
+      // level too.
+      if (isChordName(chordGroup)) {
+        tokens.push({ kind: 'chord', text: chordGroup.trim(), start, end });
+      }
     } else if (wordGroup !== undefined) {
       tokens.push({ kind: 'word', text: wordGroup, start, end });
     }
