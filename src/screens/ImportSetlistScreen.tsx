@@ -8,6 +8,7 @@ import { isDropboxConfigured, useDropboxAuth } from '../cloud/dropbox/dropboxAut
 import type { DropboxEntry } from '../cloud/dropbox/dropboxApi';
 import { importSetlistFromDropbox, listDropboxSetlistFiles } from '../setlist/setlistStorage';
 import { setlistNameFromFilename } from '../setlist/setlistCsv';
+import { useAppState } from '../state/AppStateContext';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
 
@@ -25,6 +26,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ImportSetlist'>;
  */
 export function ImportSetlistScreen({ navigation }: Props) {
   const strings = useStrings();
+  const { activeSetlist, startSetlist } = useAppState();
   const { isConnected, isChecking, connect } = useDropboxAuth();
   const [entries, setEntries] = useState<DropboxEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +55,15 @@ export function ImportSetlistScreen({ navigation }: Props) {
     setImportingPath(entry.path);
     try {
       const setlist = await importSetlistFromDropbox(entry);
+      // importSetlistFromDropbox only updates the STORED setlist — if
+      // this is the one currently playing, its own separate in-progress
+      // snapshot (song position, etc.) doesn't pick up the change on its
+      // own. Refresh it here so a re-import of the active setlist actually
+      // shows the new song count right away instead of appearing to do
+      // nothing (Rusty's real report, 2026-09-17).
+      if (activeSetlist?.setlist.name === setlist.name) {
+        await startSetlist(setlist);
+      }
       Alert.alert(
         strings.importSetlist.importedAlertTitle,
         strings.importSetlist.importedAlertMessage(setlist.name, setlist.entries.length)

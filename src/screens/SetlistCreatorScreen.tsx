@@ -22,7 +22,7 @@ function entryFor(song: Song): SetlistEntry {
 
 export function SetlistCreatorScreen({ navigation, route }: Props) {
   const strings = useStrings();
-  const { library, reduceHints } = useAppState();
+  const { library, reduceHints, activeSetlist, startSetlist } = useAppState();
   const editSetlist = route.params?.editSetlist;
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
@@ -118,13 +118,25 @@ export function SetlistCreatorScreen({ navigation, route }: Props) {
     }
     setIsSaving(true);
     try {
-      await saveSetlist({ name: name.trim(), entries });
+      const saved = { name: name.trim(), entries };
+      await saveSetlist(saved);
       // saveSetlist upserts by NAME — if this was an edit and the name got
       // changed, that just created a second setlist under the new name
       // rather than renaming the original, leaving the old one behind.
       // Clean that up explicitly rather than orphaning it.
       if (editSetlist && editSetlist.name !== name.trim()) {
         await deleteSetlist(editSetlist);
+      }
+      // saveSetlist only updates the STORED setlist — if this is the one
+      // currently playing, its own separate in-progress snapshot (song
+      // position, etc.) doesn't pick up the edit on its own. Refresh it
+      // here so editing the active setlist actually shows the change right
+      // away instead of appearing to do nothing (Rusty's real report,
+      // 2026-09-17 — he added a song via Edit and it correctly showed the
+      // new count in this screen, but the setlist he was still following
+      // kept showing the old one).
+      if (editSetlist && activeSetlist?.setlist.name === editSetlist.name) {
+        await startSetlist(saved);
       }
       navigation.goBack();
     } catch (err) {
@@ -153,114 +165,131 @@ export function SetlistCreatorScreen({ navigation, route }: Props) {
       {isLoadingExisting ? (
         <ActivityIndicator color="#fff" style={styles.spinner} />
       ) : (
-        <>
-      <TextInput
-        style={styles.nameInput}
-        value={name}
-        onChangeText={setName}
-        placeholder={strings.setlistCreator.setlistNamePlaceholder}
-        placeholderTextColor="#777"
-        accessibilityLabel={strings.setlistCreator.setlistNamePlaceholder}
-      />
+        // Everything that used to sit as fixed content above this FlatList
+        // (name field, the already-added songs, Save, the search box) now
+        // lives in its ListHeaderComponent instead, making the WHOLE screen
+        // one naturally scrolling column — the same fix already applied
+        // once before to VoiceSettingsScreen for the identical bug: a fixed
+        // block above a list can only grow, never shrink, so once the
+        // setlist itself got long (40 songs, reported live 2026-09-17)
+        // there was no way to reach entries or controls past whatever fit
+        // on one screen. Folding everything into one list closes this bug
+        // class permanently — no future addition to this screen can bring
+        // it back, same reasoning as the original fix.
+        <FlatList
+          data={filteredLibrary}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <>
+              <TextInput
+                style={styles.nameInput}
+                value={name}
+                onChangeText={setName}
+                placeholder={strings.setlistCreator.setlistNamePlaceholder}
+                placeholderTextColor="#777"
+                accessibilityLabel={strings.setlistCreator.setlistNamePlaceholder}
+              />
 
-      <View style={styles.currentSection}>
-        <Text style={styles.sectionLabel} accessibilityRole="header">
-          {strings.setlistCreator.songsInSetlistHeading(entries.length)}
-        </Text>
-        {entries.length === 0 ? (
-          <Text style={styles.emptyText}>{strings.setlistCreator.nothingAddedText}</Text>
-        ) : (
-          entries.map((entry, index) => {
-            const canMoveUp = index > 0;
-            const canMoveDown = index < entries.length - 1;
-            // Same VoiceOver custom-actions pattern as the Library screen's
-            // rows: one focusable stop per entry instead of four, swipe up
-            // or down to reach Move Up / Move Down / Remove. Only offering
-            // the moves that are actually valid at each position (no "Move
-            // Up" on the first entry, etc.) rather than a disabled action.
-            const actions = [
-              ...(canMoveUp ? [{ name: 'moveUp', label: strings.setlistCreator.moveUpActionLabel }] : []),
-              ...(canMoveDown ? [{ name: 'moveDown', label: strings.setlistCreator.moveDownActionLabel }] : []),
-              { name: 'remove', label: strings.setlistCreator.removeActionLabel },
-            ];
-            return (
+              <View style={styles.currentSection}>
+                <Text style={styles.sectionLabel} accessibilityRole="header">
+                  {strings.setlistCreator.songsInSetlistHeading(entries.length)}
+                </Text>
+                {entries.length === 0 ? (
+                  <Text style={styles.emptyText}>{strings.setlistCreator.nothingAddedText}</Text>
+                ) : (
+                  entries.map((entry, index) => {
+                    const canMoveUp = index > 0;
+                    const canMoveDown = index < entries.length - 1;
+                    // Same VoiceOver custom-actions pattern as the Library
+                    // screen's rows: one focusable stop per entry instead of
+                    // four, swipe up or down to reach Move Up / Move Down /
+                    // Remove. Only offering the moves that are actually
+                    // valid at each position (no "Move Up" on the first
+                    // entry, etc.) rather than a disabled action.
+                    const actions = [
+                      ...(canMoveUp ? [{ name: 'moveUp', label: strings.setlistCreator.moveUpActionLabel }] : []),
+                      ...(canMoveDown
+                        ? [{ name: 'moveDown', label: strings.setlistCreator.moveDownActionLabel }]
+                        : []),
+                      { name: 'remove', label: strings.setlistCreator.removeActionLabel },
+                    ];
+                    return (
+                      <Pressable
+                        key={`${entry.path || entry.title}-${index}`}
+                        style={styles.entryRow}
+                        onPress={() => {}}
+                        accessibilityRole="button"
+                        accessibilityLabel={strings.setlistCreator.entryAccessibilityLabel(index + 1, entry.title)}
+                        accessibilityHint={hintOrNone(strings.setlistCreator.entryHint, reduceHints)}
+                        accessibilityActions={actions}
+                        onAccessibilityAction={(event) => {
+                          switch (event.nativeEvent.actionName) {
+                            case 'moveUp':
+                              handleMove(index, -1);
+                              break;
+                            case 'moveDown':
+                              handleMove(index, 1);
+                              break;
+                            case 'remove':
+                              handleRemove(index);
+                              break;
+                          }
+                        }}
+                      >
+                        <Text style={styles.entryPosition}>{index + 1}.</Text>
+                        <Text style={styles.entryTitle} numberOfLines={1}>
+                          {entry.title}
+                        </Text>
+                      </Pressable>
+                    );
+                  })
+                )}
+              </View>
+
               <Pressable
-                key={`${entry.path || entry.title}-${index}`}
-                style={styles.entryRow}
-                onPress={() => {}}
+                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                onPress={handleSave}
+                disabled={isSaving}
                 accessibilityRole="button"
-                accessibilityLabel={strings.setlistCreator.entryAccessibilityLabel(index + 1, entry.title)}
-                accessibilityHint={hintOrNone(strings.setlistCreator.entryHint, reduceHints)}
-                accessibilityActions={actions}
-                onAccessibilityAction={(event) => {
-                  switch (event.nativeEvent.actionName) {
-                    case 'moveUp':
-                      handleMove(index, -1);
-                      break;
-                    case 'moveDown':
-                      handleMove(index, 1);
-                      break;
-                    case 'remove':
-                      handleRemove(index);
-                      break;
-                  }
-                }}
+                accessibilityLabel={
+                  isSaving ? strings.setlistCreator.savingLabel : strings.setlistCreator.saveSetlistLabel(!!editSetlist)
+                }
               >
-                <Text style={styles.entryPosition}>{index + 1}.</Text>
-                <Text style={styles.entryTitle} numberOfLines={1}>
-                  {entry.title}
+                <Text style={styles.saveButtonText}>
+                  {isSaving ? strings.setlistCreator.savingLabel : strings.setlistCreator.saveSetlistLabel(!!editSetlist)}
                 </Text>
               </Pressable>
+
+              <TextInput
+                style={styles.searchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder={strings.setlistCreator.searchPlaceholder}
+                placeholderTextColor="#777"
+                accessibilityLabel={strings.setlistCreator.searchPlaceholder}
+              />
+            </>
+          }
+          ListEmptyComponent={<Text style={styles.emptyText}>{strings.setlistCreator.noSongsMatchText}</Text>}
+          renderItem={({ item }) => {
+            const added = isAdded(item);
+            return (
+              <Pressable
+                style={[styles.libraryRow, added && styles.libraryRowAdded]}
+                onPress={() => handleAdd(item)}
+                disabled={added}
+                accessibilityRole="button"
+                accessibilityLabel={added ? strings.setlistCreator.addedAccessibilityLabel(item.title) : item.title}
+                accessibilityHint={added ? undefined : hintOrNone(strings.setlistCreator.addHint, reduceHints)}
+              >
+                <Text style={styles.libraryTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                {added ? <Text style={styles.addedMark}>{strings.setlistCreator.addedMarkText}</Text> : null}
+              </Pressable>
             );
-          })
-        )}
-      </View>
-
-      <Pressable
-        style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-        onPress={handleSave}
-        disabled={isSaving}
-        accessibilityRole="button"
-        accessibilityLabel={isSaving ? strings.setlistCreator.savingLabel : strings.setlistCreator.saveSetlistLabel(!!editSetlist)}
-      >
-        <Text style={styles.saveButtonText}>
-          {isSaving ? strings.setlistCreator.savingLabel : strings.setlistCreator.saveSetlistLabel(!!editSetlist)}
-        </Text>
-      </Pressable>
-
-      <TextInput
-        style={styles.searchInput}
-        value={search}
-        onChangeText={setSearch}
-        placeholder={strings.setlistCreator.searchPlaceholder}
-        placeholderTextColor="#777"
-        accessibilityLabel={strings.setlistCreator.searchPlaceholder}
-      />
-
-      <FlatList
-        data={filteredLibrary}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={styles.emptyText}>{strings.setlistCreator.noSongsMatchText}</Text>}
-        renderItem={({ item }) => {
-          const added = isAdded(item);
-          return (
-            <Pressable
-              style={[styles.libraryRow, added && styles.libraryRowAdded]}
-              onPress={() => handleAdd(item)}
-              disabled={added}
-              accessibilityRole="button"
-              accessibilityLabel={added ? strings.setlistCreator.addedAccessibilityLabel(item.title) : item.title}
-              accessibilityHint={added ? undefined : hintOrNone(strings.setlistCreator.addHint, reduceHints)}
-            >
-              <Text style={styles.libraryTitle} numberOfLines={1}>
-                {item.title}
-              </Text>
-              {added ? <Text style={styles.addedMark}>{strings.setlistCreator.addedMarkText}</Text> : null}
-            </Pressable>
-          );
-        }}
-      />
-        </>
+          }}
+        />
       )}
     </SafeAreaView>
   );
