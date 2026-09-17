@@ -9,9 +9,23 @@ import {
 import { loadLibrary, removeLibrarySong, upsertLibrarySong } from '../library/libraryStorage';
 import { resolveSetlistEntry } from '../setlist/resolveSetlistEntry';
 import { pickRandomSetlistIndex } from '../setlist/pickRandomSetlistIndex';
+import { fetchMissingSetlistSong } from '../setlist/fetchMissingSetlistSong';
 import { loadReduceHints, saveReduceHints } from '../speech/reduceHintsPreference';
-import type { Setlist } from '../setlist/setlistCsv';
+import type { Setlist, SetlistEntry } from '../setlist/setlistCsv';
 import type { Song } from '../types';
+
+/**
+ * Resolves a setlist entry against the local library first (fast, no
+ * network), falling back to downloading it fresh from Dropbox when it
+ * isn't there yet — the common case for a song that's only ever lived in
+ * Dropbox and was never individually opened on this device before. See
+ * fetchMissingSetlistSong's own doc comment for the real report this
+ * fixes: such a song looked identical to a genuinely missing one and got
+ * silently skipped forever.
+ */
+async function resolveOrFetchSetlistEntry(entry: SetlistEntry, library: Song[]): Promise<Song | null> {
+  return resolveSetlistEntry(entry, library) ?? (await fetchMissingSetlistSong(entry));
+}
 
 type AppStateValue = {
   activeSong: Song | null;
@@ -102,7 +116,7 @@ export function AppStateProvider({
   const startSetlist = useCallback(
     async (setlist: Setlist): Promise<{ started: boolean }> => {
       for (let i = 0; i < setlist.entries.length; i++) {
-        const song = resolveSetlistEntry(setlist.entries[i], library);
+        const song = await resolveOrFetchSetlistEntry(setlist.entries[i], library);
         if (song) {
           await loadSong(song);
           const state: ActiveSetlistState = { setlist, currentIndex: i };
@@ -124,9 +138,18 @@ export function AppStateProvider({
       const { setlist, currentIndex } = activeSetlist;
 
       if (direction === 'next' && activeSetlist.randomEnabled) {
-        const resolvableIndices = setlist.entries
-          .map((_, i) => i)
-          .filter((i) => resolveSetlistEntry(setlist.entries[i], library) !== null);
+        // Awaited so a song that's only ever lived in Dropbox (never opened
+        // on this device before) still counts as a real candidate rather
+        // than being silently excluded from the shuffle pool forever — a
+        // one-time network cost per song, same reasoning as
+        // resolveOrFetchSetlistEntry above; once fetched it's cached in the
+        // library and every check after this is the fast, local path.
+        const resolvableIndices: number[] = [];
+        for (let i = 0; i < setlist.entries.length; i++) {
+          if (await resolveOrFetchSetlistEntry(setlist.entries[i], library)) {
+            resolvableIndices.push(i);
+          }
+        }
         // The song being LEFT only counts toward "played this cycle" if it
         // was actually engaged with — see the doc comment on advanceSetlist
         // in the context type above for why this can't just always be true.
@@ -137,9 +160,9 @@ export function AppStateProvider({
         if (!picked) {
           return null;
         }
-        const song = resolveSetlistEntry(setlist.entries[picked.index], library);
+        const song = await resolveOrFetchSetlistEntry(setlist.entries[picked.index], library);
         if (!song) {
-          return null; // shouldn't happen — resolvableIndices was just filtered on exactly this check
+          return null; // shouldn't happen — resolvableIndices was just built on exactly this check
         }
         await loadSong(song);
         const state: ActiveSetlistState = {
@@ -154,7 +177,7 @@ export function AppStateProvider({
 
       const step = direction === 'next' ? 1 : -1;
       for (let i = currentIndex + step; i >= 0 && i < setlist.entries.length; i += step) {
-        const song = resolveSetlistEntry(setlist.entries[i], library);
+        const song = await resolveOrFetchSetlistEntry(setlist.entries[i], library);
         if (song) {
           await loadSong(song);
           const state: ActiveSetlistState = { ...activeSetlist, currentIndex: i };
