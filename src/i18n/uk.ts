@@ -265,10 +265,10 @@ export const uk: Strings = {
     stopFollowingActionLabel: 'Припинити слідування',
     refreshActionLabel: 'Оновити пісні',
     refreshDoneAlertTitle: 'Пісні оновлено',
-    refreshDoneAlertMessage: (refreshed: number, skipped: number, failed: number) => {
+    refreshDoneAlertMessage: (refreshed: number, skipped: string[], failed: string[]) => {
       const parts = [`Оновлено з Dropbox: ${refreshed}.`];
-      if (skipped > 0) parts.push(`Не в Dropbox, залишено як є: ${skipped}.`);
-      if (failed > 0) parts.push(`Не вдалося завантажити: ${failed}.`);
+      if (skipped.length > 0) parts.push(`Не в Dropbox, залишено як є: ${skipped.join(', ')}.`);
+      if (failed.length > 0) parts.push(`Не вдалося завантажити: ${failed.join(', ')}.`);
       return parts.join(' ');
     },
     editActionLabel: 'Редагувати',

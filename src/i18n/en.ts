@@ -260,10 +260,10 @@ export const en = {
     stopFollowingActionLabel: 'Stop Following',
     refreshActionLabel: 'Refresh Songs',
     refreshDoneAlertTitle: 'Songs refreshed',
-    refreshDoneAlertMessage: (refreshed: number, skipped: number, failed: number): string => {
+    refreshDoneAlertMessage: (refreshed: number, skipped: string[], failed: string[]): string => {
       const parts = [`Updated ${refreshed} ${refreshed === 1 ? 'song' : 'songs'} from Dropbox.`];
-      if (skipped > 0) parts.push(`${skipped} not in Dropbox, left as they are.`);
-      if (failed > 0) parts.push(`${failed} could not be downloaded.`);
+      if (skipped.length > 0) parts.push(`Not in Dropbox, left as they are: ${skipped.join(', ')}.`);
+      if (failed.length > 0) parts.push(`Could not be downloaded: ${failed.join(', ')}.`);
       return parts.join(' ');
     },
     editActionLabel: 'Edit',
