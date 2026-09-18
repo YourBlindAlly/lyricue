@@ -292,7 +292,7 @@ export const uk: Strings = {
     heading: (isEditing: boolean) => (isEditing ? 'Редагувати сетлист' : 'Новий сетлист'),
     setlistNamePlaceholder: 'Назва сетлиста',
     songsInSetlistHeading: (count: number) => `Пісні в цьому сетлисті (${count})`,
-    nothingAddedText: 'Ще нічого не додано — виберіть пісні зі списку нижче.',
+    nothingAddedText: 'Ще нічого не додано — проведіть по пісні у вашій бібліотеці, щоб додати її, або скористайтеся пошуком нижче.',
     moveUpActionLabel: 'Перемістити вгору',
     moveDownActionLabel: 'Перемістити вниз',
     removeActionLabel: 'Видалити',
@@ -302,6 +302,8 @@ export const uk: Strings = {
     saveSetlistLabel: (isEditing: boolean) => (isEditing ? 'Зберегти зміни' : 'Зберегти сетлист'),
     searchPlaceholder: 'Пошук у ваших піснях',
     noSongsMatchText: 'Немає відповідних пісень.',
+    addFromLibraryInstructionText:
+      'Щоб додати пісню, проведіть по ній у вашій бібліотеці та виберіть «Додати до сетлиста» — або скористайтеся пошуком тут.',
     addedAccessibilityLabel: (title: string) => `${title}, Додано`,
     addHint: 'Двічі торкніться, щоб додати.',
     addedMarkText: 'Додано',

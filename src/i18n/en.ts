@@ -287,7 +287,7 @@ export const en = {
     heading: (isEditing: boolean): string => (isEditing ? 'Edit Setlist' : 'New Setlist'),
     setlistNamePlaceholder: 'Setlist name',
     songsInSetlistHeading: (count: number) => `Songs in this setlist (${count})`,
-    nothingAddedText: 'Nothing added yet — pick songs from the list below.',
+    nothingAddedText: 'Nothing added yet — swipe on a song in your Library to add it, or search below.',
     moveUpActionLabel: 'Move Up',
     moveDownActionLabel: 'Move Down',
     removeActionLabel: 'Remove',
@@ -297,6 +297,8 @@ export const en = {
     saveSetlistLabel: (isEditing: boolean): string => (isEditing ? 'Save Changes' : 'Save Setlist'),
     searchPlaceholder: 'Search your songs',
     noSongsMatchText: 'No songs match.',
+    addFromLibraryInstructionText:
+      'To add a song, swipe on it in your Library and choose "Add to Setlist" — or search for one here.',
     addedAccessibilityLabel: (title: string) => `${title}, Added`,
     addHint: 'Double tap to add.',
     addedMarkText: 'Added',

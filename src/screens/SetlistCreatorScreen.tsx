@@ -69,12 +69,19 @@ export function SetlistCreatorScreen({ navigation, route }: Props) {
     return addedTitles.has(song.title.toLowerCase());
   };
 
+  // Deliberately empty with no search term — this used to list the WHOLE
+  // library here for browsing/checking-off, which got cumbersome once a
+  // library had hundreds of songs in it (raised by Rusty 2026-09-18). The
+  // Library screen's own "Add to Setlist" swipe action is now the primary
+  // way to build a setlist; this search box is just a fallback for adding
+  // a song to a NON-active setlist being edited here, without needing to
+  // leave this screen and make it active first.
   const filteredLibrary = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const sorted = [...library].sort((a, b) => a.title.localeCompare(b.title));
     if (!term) {
-      return sorted;
+      return [];
     }
+    const sorted = [...library].sort((a, b) => a.title.localeCompare(b.title));
     return sorted.filter((song) => song.title.toLowerCase().includes(term));
   }, [library, search]);
 
@@ -264,7 +271,13 @@ export function SetlistCreatorScreen({ navigation, route }: Props) {
               />
             </>
           }
-          ListEmptyComponent={<Text style={styles.emptyText}>{strings.setlistCreator.noSongsMatchText}</Text>}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>
+              {search.trim()
+                ? strings.setlistCreator.noSongsMatchText
+                : strings.setlistCreator.addFromLibraryInstructionText}
+            </Text>
+          }
           renderItem={({ item }) => {
             const added = isAdded(item);
             return (
