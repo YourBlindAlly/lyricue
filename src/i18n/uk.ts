@@ -263,6 +263,14 @@ export const uk: Strings = {
     resumeHint: 'Двічі торкніться, щоб продовжити. Проведіть вгору або вниз для редагування або припинення слідування.',
     playHint: 'Двічі торкніться, щоб відтворити. Проведіть вгору або вниз для редагування або видалення.',
     stopFollowingActionLabel: 'Припинити слідування',
+    refreshActionLabel: 'Оновити пісні',
+    refreshDoneAlertTitle: 'Пісні оновлено',
+    refreshDoneAlertMessage: (refreshed: number, skipped: number, failed: number) => {
+      const parts = [`Оновлено з Dropbox: ${refreshed}.`];
+      if (skipped > 0) parts.push(`Не в Dropbox, залишено як є: ${skipped}.`);
+      if (failed > 0) parts.push(`Не вдалося завантажити: ${failed}.`);
+      return parts.join(' ');
+    },
     editActionLabel: 'Редагувати',
     playingStatusText: (current: number, total: number) => `Відтворюється — пісня ${current} з ${total}`,
     importFromDropboxLabel: 'Імпортувати з Dropbox',

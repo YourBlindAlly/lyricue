@@ -11,6 +11,7 @@ import {
   syncSetlistsFromDropbox,
   type SetlistSummary,
 } from '../setlist/setlistStorage';
+import { refreshSetlistSongs } from '../setlist/refreshSetlistSongs';
 import { hintOrNone } from '../speech/reduceHintsPreference';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
@@ -91,6 +92,23 @@ export function SetlistsScreen({ navigation }: Props) {
       }
       // popTo, not navigate — see PromptScreen's "Library" link for why.
       navigation.popTo('Prompt');
+    } catch (err) {
+      Alert.alert(strings.setlists.couldntLoadSetlistAlertTitle, err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsLoadingOne(false);
+    }
+  };
+
+  const handleRefreshSongs = async (summary: SetlistSummary) => {
+    setIsLoadingOne(true);
+    try {
+      const setlist = await loadSetlist(summary);
+      const { library, addToLibrary } = appStateRef.current;
+      const { refreshed, skipped, failed } = await refreshSetlistSongs(setlist, library, addToLibrary);
+      Alert.alert(
+        strings.setlists.refreshDoneAlertTitle,
+        strings.setlists.refreshDoneAlertMessage(refreshed, skipped, failed)
+      );
     } catch (err) {
       Alert.alert(strings.setlists.couldntLoadSetlistAlertTitle, err instanceof Error ? err.message : String(err));
     } finally {
@@ -207,9 +225,11 @@ export function SetlistsScreen({ navigation }: Props) {
                         ? [
                             { name: 'stop', label: strings.setlists.stopFollowingActionLabel },
                             { name: 'edit', label: strings.setlists.editActionLabel },
+                            { name: 'refresh', label: strings.setlists.refreshActionLabel },
                           ]
                         : [
                             { name: 'edit', label: strings.setlists.editActionLabel },
+                            { name: 'refresh', label: strings.setlists.refreshActionLabel },
                             { name: 'delete', label: strings.setlists.deleteLabel },
                           ]
                     }
@@ -220,6 +240,9 @@ export function SetlistsScreen({ navigation }: Props) {
                           break;
                         case 'edit':
                           navigation.navigate('SetlistCreator', { editSetlist: item });
+                          break;
+                        case 'refresh':
+                          handleRefreshSongs(item);
                           break;
                         case 'delete':
                           handleDelete(item);

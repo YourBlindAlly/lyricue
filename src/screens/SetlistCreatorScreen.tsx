@@ -7,6 +7,7 @@ import { useAppState } from '../state/AppStateContext';
 import { deleteSetlist, loadSetlist, saveSetlist } from '../setlist/setlistStorage';
 import type { SetlistEntry } from '../setlist/setlistCsv';
 import { entryFor } from '../setlist/entryFor';
+import { ensurePersonalCopyForSong } from '../search/backupSearchResult';
 import type { Song } from '../types';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { hintOrNone } from '../speech/reduceHintsPreference';
@@ -85,11 +86,14 @@ export function SetlistCreatorScreen({ navigation, route }: Props) {
     return sorted.filter((song) => song.title.toLowerCase().includes(term));
   }, [library, search]);
 
-  const handleAdd = (song: Song) => {
+  const handleAdd = async (song: Song) => {
     if (isAdded(song)) {
       return;
     }
-    setEntries((current) => [...current, entryFor(song)]);
+    // A community-library song gets a copy in the user's own Dropbox and
+    // the entry points at it; null (any other song) leaves the entry as-is.
+    const personalPath = await ensurePersonalCopyForSong(song);
+    setEntries((current) => [...current, entryFor(song, personalPath)]);
   };
 
   const handleRemove = (index: number) => {

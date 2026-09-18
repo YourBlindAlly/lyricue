@@ -1,5 +1,6 @@
-import { uploadDropboxFile } from '../cloud/dropbox/dropboxApi';
+import { dropboxFileExists, uploadDropboxFile } from '../cloud/dropbox/dropboxApi';
 import type { SearchResult } from './searchApi';
+import type { Song } from '../types';
 
 // Strip characters not safe in a filename, matching the same convention
 // this whole project already uses everywhere a song filename gets built
@@ -12,6 +13,47 @@ function safeFilename(name: string): string {
 function extensionFromPath(path: string): string {
   const match = path.match(/\.[^./]+$/);
   return match ? match[0] : '.txt';
+}
+
+/** Where a community song's copy lives in the user's own Dropbox: "/Title - Artist.ext", no "[Key]" suffix. */
+export function personalCopyPath(title: string, artist: string | null, communityPath: string): string {
+  const base = artist ? `${title} - ${artist}` : title;
+  return `/${safeFilename(base)}${extensionFromPath(communityPath)}`;
+}
+
+/**
+ * Same path, worked out from a loaded Song instead of a search result — a
+ * community song's own filename is "Title - Artist [Key].ext", so the
+ * "[Key]" suffix is stripped to match the user's own naming convention.
+ * Null for a song that didn't come from the community library.
+ */
+export function personalCopyPathForSong(song: Song): string | null {
+  if (song.source.type !== 'search') {
+    return null;
+  }
+  const fileName = song.source.path.split('/').pop() ?? '';
+  const ext = extensionFromPath(fileName);
+  const stem = fileName.slice(0, fileName.length - ext.length).replace(/\s*\[[^\]]*\]\s*$/, '');
+  return stem ? `/${safeFilename(stem)}${ext}` : null;
+}
+
+/**
+ * Writes `content` to the user's own Dropbox at `path` ONLY if nothing is
+ * there yet — never overwrites, so a copy the user has since edited (on the
+ * PC, say) is never clobbered by re-opening the community original. Returns
+ * whether the file now exists there (already did, or was just written);
+ * false, never a throw, when Dropbox isn't reachable.
+ */
+export async function copyToPersonalDropboxIfMissing(path: string, content: string): Promise<boolean> {
+  try {
+    if (await dropboxFileExists(path)) {
+      return true;
+    }
+    await uploadDropboxFile(path, content);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -30,11 +72,20 @@ function extensionFromPath(path: string): string {
  * removed it there), kept consistent on purpose.
  */
 export function backupSearchResultToDropbox(result: SearchResult, content: string): void {
-  const base = result.artist ? `${result.title} - ${result.artist}` : result.title;
-  const fileName = safeFilename(base) + extensionFromPath(result.path);
-  uploadDropboxFile(`/${fileName}`, content).catch(() => {
-    // Intentionally silent — see doc comment above. Not connected, no
-    // signal, or any other failure just means no backup happened this
-    // time; the song is still safely in the local library either way.
-  });
+  void copyToPersonalDropboxIfMissing(personalCopyPath(result.title, result.artist, result.path), content);
+}
+
+/**
+ * For a community-library song being added to a setlist: makes sure a copy
+ * is in the user's own Dropbox (never overwriting one already there) and
+ * returns its lowercase path, matching how Dropbox paths are stored
+ * everywhere else, so the setlist entry can point at the user's own copy.
+ * Null for any other kind of song, or when the copy couldn't be made.
+ */
+export async function ensurePersonalCopyForSong(song: Song): Promise<string | null> {
+  const path = personalCopyPathForSong(song);
+  if (!path) {
+    return null;
+  }
+  return (await copyToPersonalDropboxIfMissing(path, song.rawText)) ? path.toLowerCase() : null;
 }

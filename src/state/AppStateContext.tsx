@@ -12,6 +12,7 @@ import { pickRandomSetlistIndex } from '../setlist/pickRandomSetlistIndex';
 import { fetchMissingSetlistSong } from '../setlist/fetchMissingSetlistSong';
 import { saveSetlist } from '../setlist/setlistStorage';
 import { entryFor, isSongInEntries } from '../setlist/entryFor';
+import { ensurePersonalCopyForSong } from '../search/backupSearchResult';
 import { loadReduceHints, saveReduceHints } from '../speech/reduceHintsPreference';
 import type { Setlist, SetlistEntry } from '../setlist/setlistCsv';
 import type { Song } from '../types';
@@ -155,9 +156,12 @@ export function AppStateProvider({
       if (isSongInEntries(song, activeSetlist.setlist.entries)) {
         return { added: false };
       }
+      // A community-library song gets a copy in the user's own Dropbox
+      // (never overwriting one already there) and the entry points at it.
+      const personalPath = await ensurePersonalCopyForSong(song);
       const updatedSetlist: Setlist = {
         ...activeSetlist.setlist,
-        entries: [...activeSetlist.setlist.entries, entryFor(song)],
+        entries: [...activeSetlist.setlist.entries, entryFor(song, personalPath)],
       };
       await saveSetlist(updatedSetlist);
       const state: ActiveSetlistState = { ...activeSetlist, setlist: updatedSetlist };
@@ -170,7 +174,8 @@ export function AppStateProvider({
 
   const createSetlistWithSong = useCallback(
     async (name: string, song: Song): Promise<void> => {
-      const setlist: Setlist = { name, entries: [entryFor(song)] };
+      const personalPath = await ensurePersonalCopyForSong(song);
+      const setlist: Setlist = { name, entries: [entryFor(song, personalPath)] };
       await saveSetlist(setlist);
       await startSetlist(setlist);
     },

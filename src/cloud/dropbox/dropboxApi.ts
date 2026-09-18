@@ -99,6 +99,23 @@ export async function downloadDropboxFile(path: string): Promise<string> {
   return res.text();
 }
 
+/** Whether a file already exists at `path`. Throws on anything other than a clean "not found". */
+export async function dropboxFileExists(path: string): Promise<boolean> {
+  try {
+    await authorizedFetch('https://api.dropboxapi.com/2/files/get_metadata', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    });
+    return true;
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('not_found')) {
+      return false;
+    }
+    throw err;
+  }
+}
+
 /**
  * Returns the email of the currently-connected Dropbox account. Surfaced in
  * the UI specifically so it's obvious which account got authorized — easy to

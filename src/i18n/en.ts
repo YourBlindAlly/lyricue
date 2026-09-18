@@ -258,6 +258,14 @@ export const en = {
     resumeHint: 'Double tap to resume. Swipe up or down for edit or stop-following actions.',
     playHint: 'Double tap to play. Swipe up or down for edit or delete actions.',
     stopFollowingActionLabel: 'Stop Following',
+    refreshActionLabel: 'Refresh Songs',
+    refreshDoneAlertTitle: 'Songs refreshed',
+    refreshDoneAlertMessage: (refreshed: number, skipped: number, failed: number): string => {
+      const parts = [`Updated ${refreshed} ${refreshed === 1 ? 'song' : 'songs'} from Dropbox.`];
+      if (skipped > 0) parts.push(`${skipped} not in Dropbox, left as they are.`);
+      if (failed > 0) parts.push(`${failed} could not be downloaded.`);
+      return parts.join(' ');
+    },
     editActionLabel: 'Edit',
     playingStatusText: (current: number, total: number) => `Playing — song ${current} of ${total}`,
     importFromDropboxLabel: 'Import from Dropbox',
