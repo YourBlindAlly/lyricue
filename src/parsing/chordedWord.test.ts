@@ -120,6 +120,17 @@ describe('tokenizeChordedLine', () => {
     ]);
   });
 
+  it('treats a bar-separated alternate chord as a chord, keeping the first, and reassembles a word split by it', () => {
+    // Found live 2026-09-18 ("Ordinary World", Duran Duran) — a file merged
+    // from two chord charts wrote both as "[A|D]". Not recognized as a
+    // chord, the bracket was dropped and "ave[Em|A]nue" became two words.
+    expect(tokenizeChordedLine('[A|D]on the ave[Em|A]nue')).toEqual([
+      { chord: 'A', text: 'on' },
+      { chord: null, text: 'the' },
+      { chord: 'Em', text: 'avenue' },
+    ]);
+  });
+
   it('drops a standalone line made entirely of bar/rhythm notation, producing no words at all', () => {
     expect(tokenizeChordedLine('[|][Am][|][-][|][C][|][-][|][Em][|]')).toEqual([]);
   });

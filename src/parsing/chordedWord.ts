@@ -64,7 +64,9 @@ export function tokenizeChordedLine(rawLine: string): ChordedWord[] {
       // gives any non-chord bracket, just applied at the word-tokenizing
       // level too.
       if (isChordName(chordGroup)) {
-        tokens.push({ kind: 'chord', text: chordGroup.trim(), start, end });
+        // Alternate chords ("A|D", two charts merged) — the first one is
+        // the one spoken/shown; the second is just a variant to skip.
+        tokens.push({ kind: 'chord', text: chordGroup.split('|')[0].trim(), start, end });
       }
     } else if (wordGroup !== undefined) {
       tokens.push({ kind: 'word', text: wordGroup, start, end });

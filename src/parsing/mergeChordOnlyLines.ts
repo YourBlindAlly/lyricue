@@ -30,8 +30,13 @@ const CHORD_NAME_RE =
 
 type ChordToken = { name: string; column: number };
 
+// Some sources merged from two chord charts write both versions inside one
+// bracket, split by a bar — "[A|D]" means "A in one chart, D in the other".
+// Every alternative must itself be a real chord name, so bar/rhythm
+// notation like "[|]" still isn't mistaken for one.
 export function isChordName(token: string): boolean {
-  return CHORD_NAME_RE.test(token.trim());
+  const parts = token.split('|').map((part) => part.trim());
+  return parts.every((part) => CHORD_NAME_RE.test(part));
 }
 
 /** Whether `text` contains at least one bracketed token that's a real chord name (not a section label). */
