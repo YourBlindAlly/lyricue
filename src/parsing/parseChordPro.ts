@@ -39,6 +39,19 @@ const SECTION_STARTS: { names: string[]; label: string }[] = [
   { names: ['start_of_bridge', 'sob'], label: 'Bridge' },
 ];
 
+const CHORUS_START_NAMES = ['start_of_chorus', 'soc'];
+const END_OF_CHORUS_NAMES = ['end_of_chorus', 'eoc'];
+
+// "{chorus}", "{c:chorus}", "{comment: Repeat Chorus}" — all mean "play the
+// chorus again here" when nothing else is written out.
+function isChorusRepeat(name: string, arg: string): boolean {
+  if (name === 'chorus') return true;
+  if (name === 'c' || name === 'comment' || name === 'ci' || name === 'comment_italic') {
+    return /^(repeat\s+)?chorus\s*[.:!]?$/i.test(arg.trim());
+  }
+  return false;
+}
+
 const TITLE_NAMES = ['title', 't'];
 const KEY_NAMES = ['key'];
 const CAPO_NAMES = ['capo'];
@@ -90,7 +103,15 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
   // which convention the source actually used.
   const mergedText = mergeChordOnlyLines(rawText);
 
-  for (const rawLine of mergedText.split(/\r\n|\r|\n/)) {
+  const sourceLines = mergedText.split(/\r\n|\r|\n/);
+  // The most recent marked chorus block ({soc}..{eoc}), remembered so a
+  // later repeat marker ({chorus}, {c:chorus}) can replay it instead of
+  // being silently skipped — the spec's own meaning for that directive.
+  let currentChorus: { lines: string[]; chorded: ChordedWord[][] } | null = null;
+  let recordingChorus: { lines: string[]; chorded: ChordedWord[][] } | null = null;
+
+  for (let lineNo = 0; lineNo < sourceLines.length; lineNo++) {
+    const rawLine = sourceLines[lineNo];
     const trimmed = rawLine.trim();
     const directiveMatch = trimmed.match(DIRECTIVE_RE);
 
@@ -148,9 +169,40 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
         continue;
       }
 
+      if (END_OF_CHORUS_NAMES.includes(name)) {
+        if (recordingChorus && recordingChorus.lines.length > 0) {
+          currentChorus = recordingChorus;
+        }
+        recordingChorus = null;
+        continue;
+      }
+
+      if (isChorusRepeat(name, arg) && currentChorus) {
+        // A "{c:Chorus}" label sitting right before an actual chorus block
+        // is a heading for that block, not a repeat request — replaying
+        // the old chorus there would double it.
+        const nextDirective = sourceLines
+          .slice(lineNo + 1)
+          .map((l) => l.trim())
+          .find((l) => l.length > 0 && !l.startsWith('#'))
+          ?.match(DIRECTIVE_RE);
+        const nextIsChorusBlock =
+          !!nextDirective && CHORUS_START_NAMES.includes(baseDirectiveName(nextDirective[1]));
+        if (!nextIsChorusBlock) {
+          sections.push({ lineIndex: lines.length, label: 'Chorus' });
+          lines.push(...currentChorus.lines);
+          chordedLines.push(...currentChorus.chorded);
+        }
+        continue;
+      }
+
       const sectionStart = SECTION_STARTS.find((s) => s.names.includes(name));
       if (sectionStart) {
         sections.push({ lineIndex: lines.length, label: sectionStart.label });
+        if (recordingChorus && recordingChorus.lines.length > 0) {
+          currentChorus = recordingChorus;
+        }
+        recordingChorus = CHORUS_START_NAMES.includes(name) ? { lines: [], chorded: [] } : null;
         continue;
       }
 
@@ -175,7 +227,12 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
       .trim();
     if (stripped.length > 0 && !(trimmed !== stripped && REPEAT_MARKER_RE.test(stripped))) {
       lines.push(stripped);
-      chordedLines.push(tokenizeChordedLine(trimmed));
+      const chorded = tokenizeChordedLine(trimmed);
+      chordedLines.push(chorded);
+      if (recordingChorus) {
+        recordingChorus.lines.push(stripped);
+        recordingChorus.chorded.push(chorded);
+      }
     }
   }
 

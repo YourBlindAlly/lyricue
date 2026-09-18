@@ -192,3 +192,34 @@ describe('real-file oddities found in "I\'ll Melt With You" (2026-09-18)', () =>
   });
 });
 
+
+describe('chorus repeat markers', () => {
+  const chorus = ['{soc}', '[C]Sing it loud', 'and clear', '{eoc}'];
+
+  it('replays the marked chorus at a {chorus} or {c:Chorus} repeat marker', () => {
+    const song = parseChordPro(['Verse one', ...chorus, 'Verse two', '{chorus}', 'Verse three', '{c:Chorus}'].join('\n'));
+    expect(song.lines).toEqual([
+      'Verse one',
+      'Sing it loud',
+      'and clear',
+      'Verse two',
+      'Sing it loud',
+      'and clear',
+      'Verse three',
+      'Sing it loud',
+      'and clear',
+    ]);
+    expect(song.chordedLines[4][0]).toEqual({ chord: 'C', text: 'Sing' });
+    expect(song.sections.map((s) => s.lineIndex)).toEqual([1, 4, 7]);
+  });
+
+  it('does not replay when a {c:Chorus} label just introduces the next chorus block', () => {
+    const song = parseChordPro(['Verse one', ...chorus, 'Verse two', '{c:Chorus}', ...chorus].join('\n'));
+    expect(song.lines.filter((l) => l === 'Sing it loud')).toHaveLength(2);
+  });
+
+  it('ignores a repeat marker when no chorus has been marked yet', () => {
+    const song = parseChordPro(['{c:chorus}', 'Verse one'].join('\n'));
+    expect(song.lines).toEqual(['Verse one']);
+  });
+});
