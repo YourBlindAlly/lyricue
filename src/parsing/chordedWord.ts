@@ -143,7 +143,18 @@ export function tokenizeChordedLine(rawLine: string): ChordedWord[] {
     i = j;
   }
 
-  return words;
+  // A word hyphen-split around a chord with spaces on both sides
+  // ("imag- [F] -inary") arrives as two fragments; rejoin them.
+  const joined: ChordedWord[] = [];
+  for (const word of words) {
+    const prev = joined[joined.length - 1];
+    if (prev && /\p{L}-$/u.test(prev.text) && /^-\p{L}/u.test(word.text)) {
+      prev.text = prev.text.slice(0, -1) + word.text.slice(1);
+    } else {
+      joined.push(word);
+    }
+  }
+  return joined;
 }
 
 /** For plain (non-ChordPro) lyric lines, which never carry chord data. */

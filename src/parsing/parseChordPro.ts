@@ -47,7 +47,13 @@ const LANGUAGE_NAMES = ['lang', 'language'];
 // Captures the directive name (up to the first ':' or '}') and an optional
 // argument (everything between the first ':' and the final '}', so an
 // argument containing its own colon still comes through whole).
-const DIRECTIVE_RE = /^\{([^:}]+?)(?::(.*))?\}\s*$/;
+// Trailing stray ")" / "]" after the closing brace is tolerated — real files
+// have "{soc})" typos, which otherwise fell through and got spoken as a
+// lyric line ("soc").
+const DIRECTIVE_RE = /^\{([^:}]+?)(?::(.*))?\}[\s)\]]*$/;
+// What's left of a chord-only line once its chords are stripped, when the
+// author just noted a repeat ("x2", "(2x)", "2x") — not a lyric.
+const REPEAT_MARKER_RE = /^\(?\s*(x\s*\d+|\d+\s*x)\s*\)?$/i;
 const CHORD_RE = /\[[^\]]*\]/g;
 
 /** Strips an optional `-selector` suffix (e.g. `start_of_verse-soprano`) for matching. */
@@ -161,8 +167,13 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
       continue;
     }
 
-    const stripped = trimmed.replace(CHORD_RE, '').trim();
-    if (stripped.length > 0) {
+    // "imag- [F] -inary" — a word hyphen-split around a chord with spaces
+    // on both sides — rejoins into one word.
+    const stripped = trimmed
+      .replace(CHORD_RE, '')
+      .replace(/(\p{L})-\s+-(\p{L})/gu, '$1$2')
+      .trim();
+    if (stripped.length > 0 && !(trimmed !== stripped && REPEAT_MARKER_RE.test(stripped))) {
       lines.push(stripped);
       chordedLines.push(tokenizeChordedLine(trimmed));
     }

@@ -164,3 +164,31 @@ describe('parseChordPro', () => {
     expect(result.language).toBeNull();
   });
 });
+
+describe('real-file oddities found in "I\'ll Melt With You" (2026-09-18)', () => {
+  const song = parseChordPro(
+    [
+      '{t:Melt With You}',
+      '[C] [C] [Fsus2] [Fsus2]  x2',
+      '[C] Dropped in a state of imag- [F] -inary grace',
+      '{soc})',
+      "[C] I'll stop the world",
+      '{eoc}',
+    ].join('\n')
+  );
+
+  it('does not speak a chord-only line repeat marker as a lyric', () => {
+    expect(song.lines.some((l) => /x2/.test(l))).toBe(false);
+  });
+
+  it('rejoins a word hyphen-split around a spaced chord, in both text and chorded words', () => {
+    expect(song.lines[0]).toBe('Dropped in a state of imaginary grace');
+    expect(song.chordedLines[0].map((w) => w.text)).toContain('imaginary');
+  });
+
+  it('accepts a directive with a stray trailing paren', () => {
+    expect(song.lines).toEqual(['Dropped in a state of imaginary grace', "I'll stop the world"]);
+    expect(song.sections).toEqual([{ lineIndex: 1, label: 'Chorus' }]);
+  });
+});
+
