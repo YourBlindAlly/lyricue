@@ -10,6 +10,8 @@ import { loadLibrary, removeLibrarySong, upsertLibrarySong } from '../library/li
 import { resolveSetlistEntry } from '../setlist/resolveSetlistEntry';
 import { pickRandomSetlistIndex } from '../setlist/pickRandomSetlistIndex';
 import { fetchMissingSetlistSong } from '../setlist/fetchMissingSetlistSong';
+import { saveSetlist } from '../setlist/setlistStorage';
+import { entryFor, isSongInEntries } from '../setlist/entryFor';
 import { loadReduceHints, saveReduceHints } from '../speech/reduceHintsPreference';
 import type { Setlist, SetlistEntry } from '../setlist/setlistCsv';
 import type { Song } from '../types';
@@ -40,6 +42,21 @@ type AppStateValue = {
   activeSetlist: ActiveSetlistState | null;
   /** Loads a setlist, resolves its first available song against the library, and makes it active. */
   startSetlist: (setlist: Setlist) => Promise<{ started: boolean }>;
+  /**
+   * Appends a song to the end of the currently active setlist (no-op with
+   * `added: false` if no setlist is active, or if the song is already in
+   * it). Deliberately does NOT go through `startSetlist` — the active
+   * setlist's `currentIndex` must stay exactly where it is, since this is
+   * meant for quickly queueing up a song mid-performance without disturbing
+   * what's currently playing.
+   */
+  addSongToActiveSetlist: (song: Song) => Promise<{ added: boolean }>;
+  /**
+   * Creates a brand new one-song setlist under the given name, saves it, and
+   * makes it the active setlist (so a second quick-add right after lands in
+   * this same new setlist instead of creating another one).
+   */
+  createSetlistWithSong: (name: string, song: Song) => Promise<void>;
   /**
    * Advances to the next/previous song in the active setlist, skipping any
    * entry that no longer resolves. Returns the newly-active song, or null if
@@ -128,6 +145,36 @@ export function AppStateProvider({
       return { started: false };
     },
     [library, loadSong]
+  );
+
+  const addSongToActiveSetlist = useCallback(
+    async (song: Song): Promise<{ added: boolean }> => {
+      if (!activeSetlist) {
+        return { added: false };
+      }
+      if (isSongInEntries(song, activeSetlist.setlist.entries)) {
+        return { added: false };
+      }
+      const updatedSetlist: Setlist = {
+        ...activeSetlist.setlist,
+        entries: [...activeSetlist.setlist.entries, entryFor(song)],
+      };
+      await saveSetlist(updatedSetlist);
+      const state: ActiveSetlistState = { ...activeSetlist, setlist: updatedSetlist };
+      setActiveSetlistState(state);
+      await saveActiveSetlist(state);
+      return { added: true };
+    },
+    [activeSetlist]
+  );
+
+  const createSetlistWithSong = useCallback(
+    async (name: string, song: Song): Promise<void> => {
+      const setlist: Setlist = { name, entries: [entryFor(song)] };
+      await saveSetlist(setlist);
+      await startSetlist(setlist);
+    },
+    [startSetlist]
   );
 
   const advanceSetlist = useCallback(
@@ -229,6 +276,8 @@ export function AppStateProvider({
         removeFromLibrary,
         activeSetlist,
         startSetlist,
+        addSongToActiveSetlist,
+        createSetlistWithSong,
         advanceSetlist,
         setRandomSetlist,
         clearSetlist,

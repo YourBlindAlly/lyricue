@@ -6,19 +6,13 @@ import type { RootStackParamList } from '../navigation/types';
 import { useAppState } from '../state/AppStateContext';
 import { deleteSetlist, loadSetlist, saveSetlist } from '../setlist/setlistStorage';
 import type { SetlistEntry } from '../setlist/setlistCsv';
+import { entryFor } from '../setlist/entryFor';
 import type { Song } from '../types';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { hintOrNone } from '../speech/reduceHintsPreference';
 import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SetlistCreator'>;
-
-function entryFor(song: Song): SetlistEntry {
-  return {
-    title: song.title,
-    path: song.source.type === 'dropbox' ? song.source.path : '',
-  };
-}
 
 export function SetlistCreatorScreen({ navigation, route }: Props) {
   const strings = useStrings();

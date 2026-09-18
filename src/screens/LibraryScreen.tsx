@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AccessibilityInfo, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -27,10 +27,12 @@ type SongRowProps = {
   accessibilityHint: string | undefined;
   editActionLabel: string;
   deleteActionLabel: string;
+  addToSetlistActionLabel: string;
   sourceLabel: string;
   onPress: (song: Song) => void;
   onEdit: (song: Song) => void;
   onDelete: (song: Song) => void;
+  onAddToSetlist: (song: Song) => void;
 };
 
 // Its own memoized component, not an inline function inside FlatList's
@@ -45,10 +47,12 @@ const SongRow = React.memo(function SongRow({
   accessibilityHint,
   editActionLabel,
   deleteActionLabel,
+  addToSetlistActionLabel,
   sourceLabel,
   onPress,
   onEdit,
   onDelete,
+  onAddToSetlist,
 }: SongRowProps) {
   return (
     <Pressable
@@ -64,6 +68,7 @@ const SongRow = React.memo(function SongRow({
       accessibilityActions={[
         { name: 'edit', label: editActionLabel },
         { name: 'delete', label: deleteActionLabel },
+        { name: 'addToSetlist', label: addToSetlistActionLabel },
       ]}
       onAccessibilityAction={(event) => {
         switch (event.nativeEvent.actionName) {
@@ -72,6 +77,9 @@ const SongRow = React.memo(function SongRow({
             break;
           case 'delete':
             onDelete(song);
+            break;
+          case 'addToSetlist':
+            onAddToSetlist(song);
             break;
         }
       }}
@@ -93,7 +101,16 @@ export function LibraryScreen({ navigation }: Props) {
     search: strings.library.sourceLabelSearch,
     demo: strings.library.sourceLabelDemoSong,
   };
-  const { library, isLibraryLoaded, loadSong, removeFromLibrary, reduceHints } = useAppState();
+  const {
+    library,
+    isLibraryLoaded,
+    loadSong,
+    removeFromLibrary,
+    reduceHints,
+    activeSetlist,
+    addSongToActiveSetlist,
+    createSetlistWithSong,
+  } = useAppState();
   const [isImporting, setIsImporting] = useState(false);
   const [sortMode, setSortMode] = useState(DEFAULT_SORT_MODE);
   const [searchQuery, setSearchQuery] = useState('');
@@ -213,6 +230,60 @@ export function LibraryScreen({ navigation }: Props) {
     },
     [navigation]
   );
+
+  // "Add to setlist" quick action — raised by Rusty 2026-09-17 to skip
+  // navigating to the setlist editor just to queue up one more song.
+  // With no setlist currently active, this starts a brand new one so it
+  // becomes the active setlist immediately: a second quick-add right after
+  // lands in that SAME setlist rather than spawning another one, since the
+  // action's behavior/label depends entirely on whether a setlist is active.
+  const handleAddToSetlist = useCallback(
+    (song: Song) => {
+      if (activeSetlist) {
+        const setlistName = activeSetlist.setlist.name;
+        addSongToActiveSetlist(song).then(({ added }) => {
+          AccessibilityInfo.announceForAccessibility(
+            added
+              ? strings.library.addedToSetlistAnnouncement(setlistName)
+              : strings.library.alreadyInSetlistAnnouncement(setlistName)
+          );
+        });
+        return;
+      }
+      // Date-qualified default name, not a static "New Setlist" — saveSetlist
+      // upserts local setlists BY NAME, so a static default would silently
+      // merge a second quick-started setlist into the first one instead of
+      // creating a separate one.
+      const defaultName = strings.library.newSetlistDefaultName(
+        new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric' })
+      );
+      Alert.prompt(
+        strings.library.newSetlistPromptTitle,
+        undefined,
+        [
+          { text: strings.library.cancelLabel, style: 'cancel' },
+          {
+            text: strings.library.createSetlistLabel,
+            onPress: (enteredName?: string) => {
+              const finalName = (enteredName ?? '').trim() || defaultName;
+              createSetlistWithSong(finalName, song).then(() => {
+                AccessibilityInfo.announceForAccessibility(
+                  strings.library.newSetlistCreatedAnnouncement(finalName)
+                );
+              });
+            },
+          },
+        ],
+        'plain-text',
+        defaultName
+      );
+    },
+    [activeSetlist, addSongToActiveSetlist, createSetlistWithSong, strings]
+  );
+
+  const addToSetlistActionLabel = activeSetlist
+    ? strings.library.addToSetlistActionLabel(activeSetlist.setlist.name)
+    : strings.library.addToNewSetlistActionLabel;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -355,10 +426,12 @@ export function LibraryScreen({ navigation }: Props) {
               accessibilityHint={hintOrNone(strings.library.songRowAccessibilityHint, reduceHints)}
               editActionLabel={strings.library.editActionLabel}
               deleteActionLabel={strings.library.deleteActionLabel}
+              addToSetlistActionLabel={addToSetlistActionLabel}
               sourceLabel={SOURCE_LABEL[item.source.type]}
               onPress={handleOpenSong}
               onEdit={handleEditSong}
               onDelete={handleRemove}
+              onAddToSetlist={handleAddToSetlist}
             />
           )}
         />
