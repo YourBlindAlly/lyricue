@@ -237,3 +237,16 @@ describe('inline directions and leftover notation (found in Get Together / Free 
     expect(song.lines).toEqual(['Real lyric']);
   });
 });
+
+describe('spaced-dash syllable splits (found in Free Fallin, 2026-09-19)', () => {
+  it('rejoins "Jes - [Fsus4]us" into one word, in both text and chorded words', () => {
+    const song = parseChordPro('loves [Dm7]Jes - [Fsus4]us,    and [Fsus4]Amer - [Dm7]ica  [Csus4]too.');
+    expect(song.lines.map((l) => l.replace(/\s+/g, ' '))).toEqual(['loves Jesus, and America too.']);
+    expect(song.chordedLines[0].map((w) => w.text)).toEqual(['loves', 'Jesus,', 'and', 'America', 'too.']);
+  });
+
+  it('leaves a stutter with no chord after the dash alone', () => {
+    const song = parseChordPro('Oh I - I - I [Em]won\'t be afraid');
+    expect(song.lines).toEqual(["Oh I - I - I won't be afraid"]);
+  });
+});

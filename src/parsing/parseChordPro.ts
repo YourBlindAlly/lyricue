@@ -68,6 +68,8 @@ const DIRECTIVE_RE = /^\{([^:}]+?)(?::(.*))?\}[\s)\]]*$/;
 // author just noted a repeat ("x2", "(2x)", "2x") — not a lyric.
 const REPEAT_MARKER_RE = /^\(?\s*(x\s*\d+|\d+\s*x)\s*\)?$/i;
 const CHORD_RE = /\[[^\]]*\]/g;
+const SPACED_DASH_CHORD_RE =
+  /(^|[\s\]])([\p{L}']*\p{L})(?:[ \t]+-[ \t]*|[ \t]*-[ \t]+)((?:\[[^\]]*\][ \t]*)+)(\p{L}[\p{L}']*)/gu;
 const ANGLE_TAG_RE = /<[^<>\n]{1,30}>/;
 const BARE_LABEL_RE = /^(intro|outro|solo|instrumental|interlude|break|riff|verse|chorus|bridge)\s*\d*\s*:?$/i;
 
@@ -230,7 +232,21 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
 
     // "imag- [F] -inary" — a word hyphen-split around a chord with spaces
     // on both sides — rejoins into one word.
-    const stripped = cleaned
+    // "Jes - [Fsus4]us" — a spaced dash marking where a chord lands inside a
+    // word ("Loves Jes - us"): rejoined into one word, keeping the chord
+    // glued mid-word so the tokenizer reassembles it. A stutter like
+    // "I - I - I" has no chord after the dash, so it's left alone.
+    // Left alone when one side repeats the other ("ba - ba", "eye - eyes",
+    // "ooh - ooooh") — that's a held or scatted sound, not a split word.
+    const dashJoined = cleaned.replace(
+      SPACED_DASH_CHORD_RE,
+      (whole, lead: string, left: string, chords: string, right: string) => {
+        const a = left.toLowerCase();
+        const b = right.toLowerCase();
+        return a.startsWith(b) || b.startsWith(a) ? whole : `${lead}${left}${chords}${right}`;
+      }
+    );
+    const stripped = dashJoined
       .replace(CHORD_RE, '')
       .replace(/(\p{L})-\s+-(\p{L})/gu, '$1$2')
       .trim();
@@ -238,13 +254,13 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
     // punctuation ("///  ///" rhythm marks), a bare section label
     // ("INTRO:"), or a repeat marker ("x2") — only checked when chords were
     // actually stripped from the line, so plain lyric lines are untouched.
-    const hadChords = cleaned !== stripped;
+    const hadChords = dashJoined !== stripped;
     const isLeftoverNotation =
       hadChords &&
       (!/[\p{L}\p{N}]/u.test(stripped) || BARE_LABEL_RE.test(stripped) || REPEAT_MARKER_RE.test(stripped));
     if (stripped.length > 0 && !isLeftoverNotation) {
       lines.push(stripped);
-      const chorded = tokenizeChordedLine(cleaned);
+      const chorded = tokenizeChordedLine(dashJoined);
       chordedLines.push(chorded);
       if (recordingChorus) {
         recordingChorus.lines.push(stripped);
