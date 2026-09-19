@@ -16,6 +16,7 @@ import {
 import { artistFor, sortLibraryForDisplay } from '../library/sortLibrary';
 import { hintOrNone } from '../speech/reduceHintsPreference';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { SwipeActionsRow } from '../ui/SwipeActionsRow';
 import { useStrings } from '../i18n';
 import type { Song } from '../types';
 
@@ -55,6 +56,14 @@ const SongRow = React.memo(function SongRow({
   onAddToSetlist,
 }: SongRowProps) {
   return (
+    <SwipeActionsRow
+      containerStyle={styles.songRowWrap}
+      actions={[
+        { key: 'add', label: addToSetlistActionLabel, onPress: () => onAddToSetlist(song) },
+        { key: 'edit', label: editActionLabel, onPress: () => onEdit(song) },
+        { key: 'delete', label: deleteActionLabel, onPress: () => onDelete(song), destructive: true },
+      ]}
+    >
     <Pressable
       style={styles.songRow}
       onPress={() => onPress(song)}
@@ -89,6 +98,7 @@ const SongRow = React.memo(function SongRow({
       </Text>
       <Text style={styles.songSource}>{sourceLabel}</Text>
     </Pressable>
+    </SwipeActionsRow>
   );
 });
 
@@ -320,6 +330,18 @@ export function LibraryScreen({ navigation }: Props) {
           that Dropbox works well and the one with a known reliability issue
           (the system file picker can hang browsing into Google Drive). */}
       {activeSetlist ? (
+        <SwipeActionsRow
+          containerStyle={styles.resumeWrap}
+          actions={[
+            { key: 'startOver', label: strings.library.startOverActionLabel, onPress: () => void handleStartOver() },
+            {
+              key: 'stop',
+              label: strings.library.stopFollowingActionLabel,
+              onPress: () => void clearSetlist(),
+              destructive: true,
+            },
+          ]}
+        >
         <Pressable
           style={styles.resumeButton}
           onPress={() => navigation.navigate('Prompt')}
@@ -350,6 +372,7 @@ export function LibraryScreen({ navigation }: Props) {
             )}
           </Text>
         </Pressable>
+        </SwipeActionsRow>
       ) : null}
 
       <View style={styles.actionsRow}>
@@ -508,12 +531,14 @@ const styles = StyleSheet.create({
     color: '#4f8cff',
     fontSize: 16,
   },
+  resumeWrap: {
+    marginBottom: 14,
+  },
   resumeButton: {
     backgroundColor: '#1f7a3d',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    marginBottom: 14,
   },
   resumeButtonText: {
     color: '#fff',
@@ -578,11 +603,13 @@ const styles = StyleSheet.create({
     color: '#4f8cff',
     fontSize: 16,
   },
+  songRowWrap: {
+    marginBottom: 10,
+  },
   songRow: {
     backgroundColor: '#1c1c1c',
     borderRadius: 10,
     padding: 14,
-    marginBottom: 10,
   },
   songTitle: {
     color: '#fff',

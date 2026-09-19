@@ -14,6 +14,7 @@ import {
 import { refreshSetlistSongs } from '../setlist/refreshSetlistSongs';
 import { hintOrNone } from '../speech/reduceHintsPreference';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { SwipeActionsRow, type SwipeAction } from '../ui/SwipeActionsRow';
 import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Setlists'>;
@@ -209,7 +210,20 @@ export function SetlistsScreen({ navigation }: Props) {
                 // Deleting the currently-playing setlist is disallowed here
                 // rather than handled as a special case — stop it first,
                 // then delete, avoids a confusing half-stopped state.
+                const swipeActions: SwipeAction[] = isActive
+                  ? [
+                      { key: 'startOver', label: strings.setlists.startOverActionLabel, onPress: () => void handleStartOver() },
+                      { key: 'edit', label: strings.setlists.editActionLabel, onPress: () => navigation.navigate('SetlistCreator', { editSetlist: item }) },
+                      { key: 'refresh', label: strings.setlists.refreshActionLabel, onPress: () => void handleRefreshSongs(item) },
+                      { key: 'stop', label: strings.setlists.stopFollowingActionLabel, onPress: () => void clearSetlist(), destructive: true },
+                    ]
+                  : [
+                      { key: 'edit', label: strings.setlists.editActionLabel, onPress: () => navigation.navigate('SetlistCreator', { editSetlist: item }) },
+                      { key: 'refresh', label: strings.setlists.refreshActionLabel, onPress: () => void handleRefreshSongs(item) },
+                      { key: 'delete', label: strings.setlists.deleteLabel, onPress: () => handleDelete(item), destructive: true },
+                    ];
                 return (
+                  <SwipeActionsRow containerStyle={styles.setlistRowWrap} actions={swipeActions}>
                   <Pressable
                     style={styles.setlistRow}
                     onPress={() => (isActive ? navigation.popTo('Prompt') : handleOpen(item))}
@@ -271,6 +285,7 @@ export function SetlistsScreen({ navigation }: Props) {
                       </Text>
                     ) : null}
                   </Pressable>
+                  </SwipeActionsRow>
                 );
               }}
             />
@@ -341,11 +356,13 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 15,
   },
+  setlistRowWrap: {
+    marginBottom: 8,
+  },
   setlistRow: {
     backgroundColor: '#1c1c1c',
     borderRadius: 10,
     padding: 14,
-    marginBottom: 8,
   },
   setlistName: {
     color: '#fff',

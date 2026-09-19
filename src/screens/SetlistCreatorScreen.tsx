@@ -10,6 +10,7 @@ import { entryFor } from '../setlist/entryFor';
 import { ensurePersonalCopyForSong } from '../search/backupSearchResult';
 import type { Song } from '../types';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { SwipeActionsRow, type SwipeAction } from '../ui/SwipeActionsRow';
 import { hintOrNone } from '../speech/reduceHintsPreference';
 import { useStrings } from '../i18n';
 
@@ -218,9 +219,22 @@ export function SetlistCreatorScreen({ navigation, route }: Props) {
                         : []),
                       { name: 'remove', label: strings.setlistCreator.removeActionLabel },
                     ];
+                    const swipeActions: SwipeAction[] = [
+                      ...(canMoveUp
+                        ? [{ key: 'moveUp', label: strings.setlistCreator.moveUpActionLabel, onPress: () => handleMove(index, -1) }]
+                        : []),
+                      ...(canMoveDown
+                        ? [{ key: 'moveDown', label: strings.setlistCreator.moveDownActionLabel, onPress: () => handleMove(index, 1) }]
+                        : []),
+                      { key: 'remove', label: strings.setlistCreator.removeActionLabel, onPress: () => handleRemove(index), destructive: true },
+                    ];
                     return (
-                      <Pressable
+                      <SwipeActionsRow
                         key={`${entry.path || entry.title}-${index}`}
+                        containerStyle={styles.entryRowWrap}
+                        actions={swipeActions}
+                      >
+                      <Pressable
                         style={styles.entryRow}
                         onPress={() => {}}
                         accessibilityRole="button"
@@ -246,6 +260,7 @@ export function SetlistCreatorScreen({ navigation, route }: Props) {
                           {entry.title}
                         </Text>
                       </Pressable>
+                      </SwipeActionsRow>
                     );
                   })
                 )}
@@ -351,13 +366,15 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 14,
   },
+  entryRowWrap: {
+    marginBottom: 6,
+  },
   entryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1c1c1c',
     borderRadius: 8,
     padding: 10,
-    marginBottom: 6,
     gap: 10,
   },
   entryPosition: {
