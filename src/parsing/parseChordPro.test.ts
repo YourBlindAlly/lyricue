@@ -223,3 +223,17 @@ describe('chorus repeat markers', () => {
     expect(song.lines).toEqual(['Verse one']);
   });
 });
+
+describe('inline directions and leftover notation (found in Get Together / Free Fallin, 2026-09-19)', () => {
+  it('removes angle-bracket performance directions from the spoken line and chorded words', () => {
+    const song = parseChordPro('[D]Come on people now, <up inflection> [E]smile on your brother');
+    expect(song.lines).toEqual(['Come on people now, smile on your brother']);
+    expect(song.chordedLines[0].map((w) => w.text)).toEqual(['Come', 'on', 'people', 'now,', 'smile', 'on', 'your', 'brother']);
+    expect(song.chordedLines[0][4]).toEqual({ chord: 'E', text: 'smile' });
+  });
+
+  it('drops a chord line left with only rhythm marks or a bare section label', () => {
+    const song = parseChordPro(['INTRO: [C] [G] [G]', '[C#m] ///  [G]/// [C]///', '[D] Real lyric'].join('\n'));
+    expect(song.lines).toEqual(['Real lyric']);
+  });
+});

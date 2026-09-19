@@ -68,6 +68,8 @@ const DIRECTIVE_RE = /^\{([^:}]+?)(?::(.*))?\}[\s)\]]*$/;
 // author just noted a repeat ("x2", "(2x)", "2x") — not a lyric.
 const REPEAT_MARKER_RE = /^\(?\s*(x\s*\d+|\d+\s*x)\s*\)?$/i;
 const CHORD_RE = /\[[^\]]*\]/g;
+const ANGLE_TAG_RE = /<[^<>\n]{1,30}>/;
+const BARE_LABEL_RE = /^(intro|outro|solo|instrumental|interlude|break|riff|verse|chorus|bridge)\s*\d*\s*:?$/i;
 
 /** Strips an optional `-selector` suffix (e.g. `start_of_verse-soprano`) for matching. */
 function baseDirectiveName(rawName: string): string {
@@ -219,15 +221,30 @@ export function parseChordPro(rawText: string): ParsedChordProSong {
       continue;
     }
 
+    // Performance directions written inline in angle brackets ("<up
+    // inflection>", "<palm>") were being spoken as lyrics. Spacing is only
+    // touched when a tag was actually there to remove.
+    const cleaned = ANGLE_TAG_RE.test(trimmed)
+      ? trimmed.replace(new RegExp(ANGLE_TAG_RE.source, 'g'), ' ').replace(/\s{2,}/g, ' ').trim()
+      : trimmed;
+
     // "imag- [F] -inary" — a word hyphen-split around a chord with spaces
     // on both sides — rejoins into one word.
-    const stripped = trimmed
+    const stripped = cleaned
       .replace(CHORD_RE, '')
       .replace(/(\p{L})-\s+-(\p{L})/gu, '$1$2')
       .trim();
-    if (stripped.length > 0 && !(trimmed !== stripped && REPEAT_MARKER_RE.test(stripped))) {
+    // What's left after chords are gone can still be non-lyric: nothing but
+    // punctuation ("///  ///" rhythm marks), a bare section label
+    // ("INTRO:"), or a repeat marker ("x2") — only checked when chords were
+    // actually stripped from the line, so plain lyric lines are untouched.
+    const hadChords = cleaned !== stripped;
+    const isLeftoverNotation =
+      hadChords &&
+      (!/[\p{L}\p{N}]/u.test(stripped) || BARE_LABEL_RE.test(stripped) || REPEAT_MARKER_RE.test(stripped));
+    if (stripped.length > 0 && !isLeftoverNotation) {
       lines.push(stripped);
-      const chorded = tokenizeChordedLine(trimmed);
+      const chorded = tokenizeChordedLine(cleaned);
       chordedLines.push(chorded);
       if (recordingChorus) {
         recordingChorus.lines.push(stripped);
