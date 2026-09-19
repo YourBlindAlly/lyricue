@@ -110,6 +110,8 @@ export function LibraryScreen({ navigation }: Props) {
     activeSetlist,
     addSongToActiveSetlist,
     createSetlistWithSong,
+    clearSetlist,
+    startOverSetlist,
   } = useAppState();
   const [isImporting, setIsImporting] = useState(false);
   const [sortMode, setSortMode] = useState(DEFAULT_SORT_MODE);
@@ -281,6 +283,18 @@ export function LibraryScreen({ navigation }: Props) {
     [activeSetlist, addSongToActiveSetlist, createSetlistWithSong, strings]
   );
 
+  // Resume button (shown only while a setlist is active): plain activation
+  // goes back into the setlist where it left off; the VoiceOver custom
+  // actions start it over or stop following it, so neither needs a trip to
+  // the Setlists screen. Plain navigate is right here for the same reason
+  // as handleOpenSong: Library is the root, so Prompt never already exists.
+  const handleStartOver = useCallback(async () => {
+    const song = await startOverSetlist();
+    if (song) {
+      AccessibilityInfo.announceForAccessibility(strings.library.startedOverAnnouncement(song.title));
+    }
+  }, [startOverSetlist, strings]);
+
   const addToSetlistActionLabel = activeSetlist
     ? strings.library.addToSetlistActionLabel(activeSetlist.setlist.name)
     : strings.library.addToNewSetlistActionLabel;
@@ -305,6 +319,39 @@ export function LibraryScreen({ navigation }: Props) {
           first, Import File last, since it's both the least-used path now
           that Dropbox works well and the one with a known reliability issue
           (the system file picker can hang browsing into Google Drive). */}
+      {activeSetlist ? (
+        <Pressable
+          style={styles.resumeButton}
+          onPress={() => navigation.navigate('Prompt')}
+          accessibilityRole="button"
+          accessibilityLabel={strings.library.resumeSetlistLabel(
+            activeSetlist.setlist.name,
+            activeSetlist.currentIndex + 1,
+            activeSetlist.setlist.entries.length
+          )}
+          accessibilityHint={hintOrNone(strings.library.resumeSetlistHint, reduceHints)}
+          accessibilityActions={[
+            { name: 'startOver', label: strings.library.startOverActionLabel },
+            { name: 'stop', label: strings.library.stopFollowingActionLabel },
+          ]}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === 'startOver') {
+              void handleStartOver();
+            } else if (event.nativeEvent.actionName === 'stop') {
+              void clearSetlist();
+            }
+          }}
+        >
+          <Text style={styles.resumeButtonText} numberOfLines={2}>
+            {strings.library.resumeSetlistLabel(
+              activeSetlist.setlist.name,
+              activeSetlist.currentIndex + 1,
+              activeSetlist.setlist.entries.length
+            )}
+          </Text>
+        </Pressable>
+      ) : null}
+
       <View style={styles.actionsRow}>
         <Pressable
           style={styles.actionButton}
@@ -460,6 +507,18 @@ const styles = StyleSheet.create({
   aboutLink: {
     color: '#4f8cff',
     fontSize: 16,
+  },
+  resumeButton: {
+    backgroundColor: '#1f7a3d',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  resumeButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   actionsRow: {
     flexDirection: 'row',

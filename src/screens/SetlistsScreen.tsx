@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -21,7 +21,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Setlists'>;
 export function SetlistsScreen({ navigation }: Props) {
   const strings = useStrings();
   const appState = useAppState();
-  const { activeSetlist, startSetlist, clearSetlist, reduceHints } = appState;
+  const { activeSetlist, startSetlist, clearSetlist, startOverSetlist, reduceHints } = appState;
   const [setlists, setSetlists] = useState<SetlistSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingOne, setIsLoadingOne] = useState(false);
@@ -113,6 +113,13 @@ export function SetlistsScreen({ navigation }: Props) {
       Alert.alert(strings.setlists.couldntLoadSetlistAlertTitle, err instanceof Error ? err.message : String(err));
     } finally {
       setIsLoadingOne(false);
+    }
+  };
+
+  const handleStartOver = async () => {
+    const song = await startOverSetlist();
+    if (song) {
+      AccessibilityInfo.announceForAccessibility(strings.setlists.startedOverAnnouncement(song.title));
     }
   };
 
@@ -223,6 +230,7 @@ export function SetlistsScreen({ navigation }: Props) {
                     accessibilityActions={
                       isActive
                         ? [
+                            { name: 'startOver', label: strings.setlists.startOverActionLabel },
                             { name: 'stop', label: strings.setlists.stopFollowingActionLabel },
                             { name: 'edit', label: strings.setlists.editActionLabel },
                             { name: 'refresh', label: strings.setlists.refreshActionLabel },
@@ -235,6 +243,9 @@ export function SetlistsScreen({ navigation }: Props) {
                     }
                     onAccessibilityAction={(event) => {
                       switch (event.nativeEvent.actionName) {
+                        case 'startOver':
+                          void handleStartOver();
+                          break;
                         case 'stop':
                           clearSetlist();
                           break;

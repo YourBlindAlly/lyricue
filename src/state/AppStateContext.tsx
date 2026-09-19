@@ -75,6 +75,14 @@ type AppStateValue = {
   advanceSetlist: (direction: 'next' | 'previous', options?: { wasEngaged?: boolean }) => Promise<Song | null>;
   clearSetlist: () => Promise<void>;
   /**
+   * Resets the active setlist's progress without stopping it: clears random
+   * mode's "already played" tracking and moves to a fresh starting song —
+   * the first resolvable one, or a random one when random-next is on (the
+   * random setting itself is kept). Returns the song it landed on, or null
+   * if no setlist is active or nothing resolves.
+   */
+  startOverSetlist: () => Promise<Song | null>;
+  /**
    * Turns the active setlist's random-next mode on or off. No-op if no
    * setlist is active. Turning it off drops the "played this cycle"
    * tracking since it's meaningless while random mode is off.
@@ -265,6 +273,41 @@ export function AppStateProvider({
     [activeSetlist]
   );
 
+  const startOverSetlist = useCallback(async (): Promise<Song | null> => {
+    if (!activeSetlist) {
+      return null;
+    }
+    const { setlist } = activeSetlist;
+    const resolvable: number[] = [];
+    for (let i = 0; i < setlist.entries.length; i++) {
+      if (await resolveOrFetchSetlistEntry(setlist.entries[i], library)) {
+        resolvable.push(i);
+      }
+    }
+    const randomEnabled = !!activeSetlist.randomEnabled;
+    // Random mode never lands back on the song already playing; plain mode
+    // always goes to the first song.
+    const index = randomEnabled
+      ? pickRandomSetlistIndex(resolvable, activeSetlist.currentIndex, [])?.index ?? resolvable[0]
+      : resolvable[0];
+    if (index === undefined) {
+      return null;
+    }
+    const song = await resolveOrFetchSetlistEntry(setlist.entries[index], library);
+    if (!song) {
+      return null;
+    }
+    await loadSong(song);
+    const state: ActiveSetlistState = {
+      ...activeSetlist,
+      currentIndex: index,
+      playedIndices: randomEnabled ? [] : undefined,
+    };
+    setActiveSetlistState(state);
+    await saveActiveSetlist(state);
+    return song;
+  }, [activeSetlist, library, loadSong]);
+
   const clearSetlist = useCallback(async () => {
     setActiveSetlistState(null);
     await clearActiveSetlist();
@@ -286,6 +329,7 @@ export function AppStateProvider({
         advanceSetlist,
         setRandomSetlist,
         clearSetlist,
+        startOverSetlist,
         reduceHints,
         setReduceHints,
       }}

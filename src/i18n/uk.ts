@@ -67,6 +67,12 @@ export const uk: Strings = {
     newSetlistPromptTitle: 'Назва нового сетлиста',
     newSetlistDefaultName: (date: string) => `Новий сетлист, ${date}`,
     createSetlistLabel: 'Створити',
+    resumeSetlistLabel: (name: string, current: number, total: number) =>
+      `Продовжити ${name}, пісня ${current} з ${total}`,
+    resumeSetlistHint: 'Двічі торкніться, щоб продовжити. Проведіть вгору або вниз, щоб почати спочатку або припинити слідування.',
+    startOverActionLabel: 'Почати спочатку',
+    stopFollowingActionLabel: 'Припинити слідування',
+    startedOverAnnouncement: (title: string) => `Розпочато спочатку. ${title}`,
     newSetlistCreatedAnnouncement: (setlistName: string) => `Створено новий сетлист, ${setlistName}`,
     sourceLabelPasted: 'Вставлено',
     sourceLabelImportedFile: 'Імпортований файл',
@@ -260,9 +266,11 @@ export const uk: Strings = {
     emptyText: 'Сетлистів поки немає. Натисніть «Новий сетлист», щоб створити перший.',
     activePlayingAccessibilityLabel: (name: string, current: number, total: number) =>
       `${name}, Відтворюється — пісня ${current} з ${total}`,
-    resumeHint: 'Двічі торкніться, щоб продовжити. Проведіть вгору або вниз для редагування або припинення слідування.',
+    resumeHint: 'Двічі торкніться, щоб продовжити. Проведіть вгору або вниз, щоб почати спочатку, редагувати або припинити слідування.',
     playHint: 'Двічі торкніться, щоб відтворити. Проведіть вгору або вниз для редагування або видалення.',
     stopFollowingActionLabel: 'Припинити слідування',
+    startOverActionLabel: 'Почати спочатку',
+    startedOverAnnouncement: (title: string) => `Розпочато спочатку. ${title}`,
     refreshActionLabel: 'Оновити пісні',
     refreshDoneAlertTitle: 'Пісні оновлено',
     refreshDoneAlertMessage: (refreshed: number, skipped: string[], failed: string[]) => {

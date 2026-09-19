@@ -65,6 +65,12 @@ export const en = {
     newSetlistPromptTitle: 'New setlist name',
     newSetlistDefaultName: (date: string): string => `New Setlist, ${date}`,
     createSetlistLabel: 'Create',
+    resumeSetlistLabel: (name: string, current: number, total: number): string =>
+      `Resume ${name}, song ${current} of ${total}`,
+    resumeSetlistHint: 'Double tap to resume. Swipe up or down for start-over or stop-following actions.',
+    startOverActionLabel: 'Start Over',
+    stopFollowingActionLabel: 'Stop Following',
+    startedOverAnnouncement: (title: string): string => `Started over. ${title}`,
     newSetlistCreatedAnnouncement: (setlistName: string): string => `Created new setlist, ${setlistName}`,
     sourceLabelPasted: 'Pasted',
     sourceLabelImportedFile: 'Imported file',
@@ -255,9 +261,11 @@ export const en = {
     emptyText: 'No setlists yet. Tap "New Setlist" to build your first one.',
     activePlayingAccessibilityLabel: (name: string, current: number, total: number) =>
       `${name}, Playing — song ${current} of ${total}`,
-    resumeHint: 'Double tap to resume. Swipe up or down for edit or stop-following actions.',
+    resumeHint: 'Double tap to resume. Swipe up or down for start-over, edit, or stop-following actions.',
     playHint: 'Double tap to play. Swipe up or down for edit or delete actions.',
     stopFollowingActionLabel: 'Stop Following',
+    startOverActionLabel: 'Start Over',
+    startedOverAnnouncement: (title: string): string => `Started over. ${title}`,
     refreshActionLabel: 'Refresh Songs',
     refreshDoneAlertTitle: 'Songs refreshed',
     refreshDoneAlertMessage: (refreshed: number, skipped: string[], failed: string[]): string => {
