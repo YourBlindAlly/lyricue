@@ -122,6 +122,7 @@ export function LibraryScreen({ navigation }: Props) {
     createSetlistWithSong,
     clearSetlist,
     startOverSetlist,
+    resumeSetlist,
   } = useAppState();
   const [isImporting, setIsImporting] = useState(false);
   const [sortMode, setSortMode] = useState(DEFAULT_SORT_MODE);
@@ -298,6 +299,11 @@ export function LibraryScreen({ navigation }: Props) {
   // actions start it over or stop following it, so neither needs a trip to
   // the Setlists screen. Plain navigate is right here for the same reason
   // as handleOpenSong: Library is the root, so Prompt never already exists.
+  const handleResume = useCallback(async () => {
+    await resumeSetlist();
+    navigation.navigate('Prompt');
+  }, [resumeSetlist, navigation]);
+
   const handleStartOver = useCallback(async () => {
     const song = await startOverSetlist();
     if (song) {
@@ -344,7 +350,7 @@ export function LibraryScreen({ navigation }: Props) {
         >
         <Pressable
           style={styles.resumeButton}
-          onPress={() => navigation.navigate('Prompt')}
+          onPress={() => void handleResume()}
           accessibilityRole="button"
           accessibilityLabel={strings.library.resumeSetlistLabel(
             activeSetlist.setlist.name,

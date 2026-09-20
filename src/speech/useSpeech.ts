@@ -7,6 +7,8 @@ import { pickVoiceForLanguage } from './voiceForLanguage';
 import { loadLanguageVoiceMap, voiceForLanguageCode, type LanguageVoiceMap } from './languageVoicePreference';
 import type { SpeechSegment } from '../parsing/wrapLines';
 
+const INTERRUPT_SETTLE_MS = 100;
+
 export function useSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const mounted = useRef(true);
@@ -36,6 +38,11 @@ export function useSpeech() {
   // 2026-08-31 — reading the stale line before "Next song" before "No more
   // songs in this setlist", none of them properly cut off).
   const requestIdRef = useRef(0);
+  // The request id of the utterance currently being spoken, or null when
+  // nothing is. Cleared only by that same request's own done/stopped/error,
+  // so a stale "stopped" event from an older line can't mark a newer one as
+  // finished.
+  const activeRequestRef = useRef<number | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -149,6 +156,10 @@ export function useSpeech() {
       }
       const segment = segments[index];
       const isLast = index === segments.length - 1;
+      activeRequestRef.current = requestId;
+      const finish = () => {
+        if (activeRequestRef.current === requestId) activeRequestRef.current = null;
+      };
       Speech.speak(segment.text, {
         voice: voiceIdForThisCall ?? undefined,
         rate: rateRef.current,
@@ -162,22 +173,35 @@ export function useSpeech() {
         useApplicationAudioSession: false,
         onDone: () => {
           if (isLast) {
+            finish();
             if (mounted.current) setIsSpeaking(false);
           } else {
             speakFrom(index + 1);
           }
         },
         onStopped: () => {
+          finish();
           if (mounted.current) setIsSpeaking(false);
         },
         onError: () => {
+          finish();
           if (mounted.current) setIsSpeaking(false);
         },
       });
     };
 
     (async () => {
+      // Cutting off a line that's still being spoken: iOS can still be
+      // finishing the stop when the next utterance starts, which swallows
+      // the new line's first syllable or two (occasional dropped first
+      // words, reported repeatedly by Rusty). A brief settle pause only in
+      // that case — idle presses stay instant. An experiment; if dropped
+      // words persist, this wasn't the cause.
+      const interrupting = activeRequestRef.current !== null;
       await Speech.stop();
+      if (interrupting) {
+        await new Promise((resolve) => setTimeout(resolve, INTERRUPT_SETTLE_MS));
+      }
       if (!mounted.current) return;
       if (requestIdRef.current !== requestId) return; // superseded by a newer call — don't speak stale content
       setIsSpeaking(true);

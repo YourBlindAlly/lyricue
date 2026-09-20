@@ -75,6 +75,15 @@ type AppStateValue = {
   advanceSetlist: (direction: 'next' | 'previous', options?: { wasEngaged?: boolean }) => Promise<Song | null>;
   clearSetlist: () => Promise<void>;
   /**
+   * Makes sure the setlist's own current song is the active one before the
+   * lyrics screen opens — after a detour to some other song (looked at from
+   * the Library while a setlist was active), resuming must return to the
+   * setlist's song, not show the detour. Does nothing if the right song is
+   * already active, no setlist is active, or the current entry can't be
+   * resolved (the lyrics screen then just opens on whatever is active).
+   */
+  resumeSetlist: () => Promise<void>;
+  /**
    * Resets the active setlist's progress without stopping it: clears random
    * mode's "already played" tracking and moves to a fresh starting song —
    * the first resolvable one, or a random one when random-next is on (the
@@ -273,6 +282,20 @@ export function AppStateProvider({
     [activeSetlist]
   );
 
+  const resumeSetlist = useCallback(async (): Promise<void> => {
+    if (!activeSetlist) {
+      return;
+    }
+    const entry = activeSetlist.setlist.entries[activeSetlist.currentIndex];
+    if (!entry) {
+      return;
+    }
+    const song = await resolveOrFetchSetlistEntry(entry, library);
+    if (song && song.id !== activeSong?.id) {
+      await loadSong(song);
+    }
+  }, [activeSetlist, activeSong, library, loadSong]);
+
   const startOverSetlist = useCallback(async (): Promise<Song | null> => {
     if (!activeSetlist) {
       return null;
@@ -330,6 +353,7 @@ export function AppStateProvider({
         setRandomSetlist,
         clearSetlist,
         startOverSetlist,
+        resumeSetlist,
         reduceHints,
         setReduceHints,
       }}

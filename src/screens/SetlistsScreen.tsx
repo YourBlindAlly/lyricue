@@ -22,7 +22,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Setlists'>;
 export function SetlistsScreen({ navigation }: Props) {
   const strings = useStrings();
   const appState = useAppState();
-  const { activeSetlist, startSetlist, clearSetlist, startOverSetlist, reduceHints } = appState;
+  const { activeSetlist, startSetlist, clearSetlist, startOverSetlist, resumeSetlist, reduceHints } = appState;
   const [setlists, setSetlists] = useState<SetlistSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingOne, setIsLoadingOne] = useState(false);
@@ -115,6 +115,12 @@ export function SetlistsScreen({ navigation }: Props) {
     } finally {
       setIsLoadingOne(false);
     }
+  };
+
+  const handleResume = async () => {
+    await resumeSetlist();
+    // popTo, not navigate — see PromptScreen's "Library" link for why.
+    navigation.popTo('Prompt');
   };
 
   const handleStartOver = async () => {
@@ -227,7 +233,7 @@ export function SetlistsScreen({ navigation }: Props) {
                   <SwipeActionsRow containerStyle={styles.setlistRowWrap} actions={swipeActions}>
                   <Pressable
                     style={styles.setlistRow}
-                    onPress={() => (isActive ? navigation.popTo('Prompt') : handleOpen(item))}
+                    onPress={() => (isActive ? handleResume() : handleOpen(item))}
                     accessibilityRole="button"
                     accessibilityLabel={
                       isActive
