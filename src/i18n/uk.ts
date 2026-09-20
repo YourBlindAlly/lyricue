@@ -121,6 +121,13 @@ export const uk: Strings = {
     loadFailedAlertTitle: 'Не вдалося завантажити пісню',
   },
 
+  settingsScreen: {
+    backButtonLabel: 'Назад',
+    heading: 'Налаштування',
+    pedalLinkLabel: 'Педаль і керування',
+    voiceLinkLabel: 'Голос',
+  },
+
   pedalSettings: {
     backButtonLabel: 'Назад',
     heading: 'Педаль і керування',
@@ -366,6 +373,7 @@ export const uk: Strings = {
     chordPitchOnActionLabel: 'Вищий',
     chordPitchOffActionLabel: 'Звичайний',
     editLinkLabel: 'Редагувати',
+    settingsLinkLabel: 'Налаштування',
     libraryLinkLabel: 'Бібліотека',
     lyricsAreaAccessibilityLabel: 'Текст пісні',
     lyricsAreaHint: 'Проведіть вниз для наступного рядка, вгору — для попереднього.',

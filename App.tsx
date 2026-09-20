@@ -9,6 +9,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
 import { InputScreen } from './src/screens/InputScreen';
 import { PromptScreen } from './src/screens/PromptScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { PedalSettingsScreen } from './src/screens/PedalSettingsScreen';
 import { VoiceSettingsScreen } from './src/screens/VoiceSettingsScreen';
 import { LanguageVoicesScreen } from './src/screens/LanguageVoicesScreen';
@@ -116,6 +117,7 @@ export default function App() {
               <Stack.Screen name="Library" component={LibraryScreen} />
               <Stack.Screen name="NewSong" component={InputScreen} />
               <Stack.Screen name="Prompt" component={PromptScreen} />
+              <Stack.Screen name="Settings" component={SettingsScreen} />
               <Stack.Screen name="PedalSettings" component={PedalSettingsScreen} />
               <Stack.Screen name="VoiceSettings" component={VoiceSettingsScreen} />
               <Stack.Screen name="LanguageVoices" component={LanguageVoicesScreen} />

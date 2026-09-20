@@ -119,6 +119,13 @@ export const en = {
     loadFailedAlertTitle: 'Couldn’t load that song',
   },
 
+  settingsScreen: {
+    backButtonLabel: 'Back',
+    heading: 'Settings',
+    pedalLinkLabel: 'Pedal & Controls',
+    voiceLinkLabel: 'Voice',
+  },
+
   pedalSettings: {
     backButtonLabel: 'Back',
     heading: 'Pedal & Controls',
@@ -361,6 +368,7 @@ export const en = {
     chordPitchOnActionLabel: 'Higher',
     chordPitchOffActionLabel: 'Normal',
     editLinkLabel: 'Edit',
+    settingsLinkLabel: 'Settings',
     libraryLinkLabel: 'Library',
     lyricsAreaAccessibilityLabel: 'Lyrics',
     lyricsAreaHint: 'Swipe down for the next line, up for the previous.',

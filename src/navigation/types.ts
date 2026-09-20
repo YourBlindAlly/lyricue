@@ -4,6 +4,7 @@ export type RootStackParamList = {
   Library: undefined;
   NewSong: { editSong?: Song } | undefined;
   Prompt: undefined;
+  Settings: undefined;
   PedalSettings: undefined;
   VoiceSettings: undefined;
   LanguageVoices: undefined;

@@ -13,18 +13,13 @@ import { useAudioInterruptionResume } from '../speech/useAudioInterruptionResume
 import { loadReduceVoiceOverChatter } from '../speech/voiceOverPreference';
 import { hintOrNone } from '../speech/reduceHintsPreference';
 import {
-  DEFAULT_LINE_LENGTH_PRESET,
-  LINE_LENGTH_PRESET_LABEL,
   loadLineLengthPreset,
-  nextLineLengthPreset,
-  previousLineLengthPreset,
-  saveLineLengthPreset,
   wrapOptionsForPreset,
   type LineLengthPreset,
 } from '../parsing/lineLengthPreference';
 import { loadIncludeChords, saveIncludeChords } from '../parsing/chordsPreference';
-import { loadBreakAtChords, saveBreakAtChords } from '../parsing/chordLineBreaksPreference';
-import { loadHigherPitchForChords, saveHigherPitchForChords } from '../speech/chordPitchPreference';
+import { loadBreakAtChords } from '../parsing/chordLineBreaksPreference';
+import { loadHigherPitchForChords } from '../speech/chordPitchPreference';
 import { loadRepeatFeatureEnabled } from '../pedal/repeatFeaturePreference';
 import { loadLanguageDetectionEngine, type LanguageDetectionEngine } from '../speech/languageDetectionEnginePreference';
 import { detectDominantLanguageApple } from '../speech/appleLanguageDetection';
@@ -189,17 +184,6 @@ export function PromptScreen({ navigation }: Props) {
   // <-> off), unlike most of this app's other adjustable controls — see
   // lineLengthPreference.ts's PRESET_ORDER comment for why. Tap and
   // swipe-up both move forward, so they share the same function.
-  const handleAdjustLineLength = (direction: 'increment' | 'decrement') => {
-    setLineLengthPreset((current) => {
-      const base = current ?? DEFAULT_LINE_LENGTH_PRESET;
-      const next = direction === 'increment' ? nextLineLengthPreset(base) : previousLineLengthPreset(base);
-      void saveLineLengthPreset(next);
-      return next;
-    });
-  };
-
-  const handleCycleLineLength = () => handleAdjustLineLength('increment');
-
   const handleAdjustChords = (direction: 'increment' | 'decrement') => {
     const next = direction === 'increment';
     setIncludeChords(next);
@@ -218,20 +202,6 @@ export function PromptScreen({ navigation }: Props) {
   // forces every chord change to start a new line, aimed at someone learning
   // a song rather than performing one they already know. See
   // wrapLines.ts's breakAtEveryChord for the actual splitting logic.
-  const handleAdjustLineBreaks = (direction: 'increment' | 'decrement') => {
-    const next = direction === 'increment';
-    setBreakAtChords(next);
-    void saveBreakAtChords(next);
-  };
-
-  const handleToggleLineBreaks = () => {
-    setBreakAtChords((current) => {
-      const next = !current;
-      void saveBreakAtChords(next);
-      return next;
-    });
-  };
-
   // Breaking at chords only means anything if chords are actually being
   // announced — with chords off, forcing a break at a chord no one hears
   // about is pointless. Rather than guess what a chords-off user would want
@@ -249,20 +219,6 @@ export function PromptScreen({ navigation }: Props) {
   // would want.
   const chordPitchInteractive = includeChords === true;
   const effectiveHigherPitchForChords = chordPitchInteractive ? (higherPitchForChords ?? false) : false;
-
-  const handleAdjustChordPitch = (direction: 'increment' | 'decrement') => {
-    const next = direction === 'increment';
-    setHigherPitchForChords(next);
-    void saveHigherPitchForChords(next);
-  };
-
-  const handleToggleChordPitch = () => {
-    setHigherPitchForChords((current) => {
-      const next = !current;
-      void saveHigherPitchForChords(next);
-      return next;
-    });
-  };
 
   // Re-wrapping is a system-wide preference (not per-song), applied here at
   // playback time rather than baked into Song.lines, so changing it in
@@ -469,7 +425,7 @@ export function PromptScreen({ navigation }: Props) {
     [activeSetlist, advanceSetlist, currentIndex, speakNow, strings]
   );
 
-  const { isPedalConnected } = usePedalInput({
+  usePedalInput({
     onAction: (action) => {
       if (!isFocusedRef.current) return;
       if (action === 'next') {
@@ -632,48 +588,6 @@ export function PromptScreen({ navigation }: Props) {
               the old, more descriptive spoken versions. */}
           <Pressable
             hitSlop={ROW_LINK_HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel={isPedalConnected ? strings.promptScreen.pedalConnectedStatusLabel : strings.promptScreen.pedalNotConnectedStatusLabel}
-            onPress={() => navigation.navigate('PedalSettings')}
-          >
-            <Text style={styles.exitLink}>
-              {isPedalConnected ? strings.promptScreen.pedalConnectedStatusLabel : strings.promptScreen.pedalNotConnectedStatusLabel}
-            </Text>
-          </Pressable>
-          <Pressable
-            hitSlop={ROW_LINK_HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel={strings.promptScreen.voiceLinkLabel}
-            onPress={() => navigation.navigate('VoiceSettings')}
-          >
-            <Text style={styles.exitLink}>{strings.promptScreen.voiceLinkLabel}</Text>
-          </Pressable>
-          <Pressable
-            hitSlop={ROW_LINK_HIT_SLOP}
-            accessible
-            accessibilityRole="adjustable"
-            accessibilityLabel={strings.promptScreen.linesText}
-            accessibilityValue={{ text: LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET] }}
-            accessibilityHint={hintOrNone(strings.promptScreen.linesHint, reduceHints)}
-            accessibilityActions={[
-              { name: 'increment', label: strings.promptScreen.longerActionLabel },
-              { name: 'decrement', label: strings.promptScreen.shorterActionLabel },
-            ]}
-            onAccessibilityAction={(event) => {
-              if (event.nativeEvent.actionName === 'increment') {
-                handleAdjustLineLength('increment');
-              } else if (event.nativeEvent.actionName === 'decrement') {
-                handleAdjustLineLength('decrement');
-              }
-            }}
-            onPress={handleCycleLineLength}
-          >
-            <Text style={styles.exitLink}>
-              {strings.promptScreen.linesLabel(LINE_LENGTH_PRESET_LABEL[lineLengthPreset ?? DEFAULT_LINE_LENGTH_PRESET])}
-            </Text>
-          </Pressable>
-          <Pressable
-            hitSlop={ROW_LINK_HIT_SLOP}
             accessible
             accessibilityRole="adjustable"
             accessibilityLabel={strings.promptScreen.chordsText}
@@ -700,73 +614,11 @@ export function PromptScreen({ navigation }: Props) {
           </Pressable>
           <Pressable
             hitSlop={ROW_LINK_HIT_SLOP}
-            accessible
-            accessibilityRole={lineBreaksInteractive ? 'adjustable' : undefined}
-            accessibilityLabel={strings.promptScreen.lineBreaksText}
-            accessibilityValue={{
-              text: effectiveBreakAtChords ? strings.promptScreen.lineBreaksChordsValue : strings.promptScreen.lineBreaksWordsValue,
-            }}
-            accessibilityHint={lineBreaksInteractive ? hintOrNone(strings.promptScreen.lineBreaksHint, reduceHints) : undefined}
-            accessibilityActions={
-              lineBreaksInteractive
-                ? [
-                    { name: 'increment', label: strings.promptScreen.lineBreaksChordsValue },
-                    { name: 'decrement', label: strings.promptScreen.lineBreaksWordsValue },
-                  ]
-                : undefined
-            }
-            onAccessibilityAction={
-              lineBreaksInteractive
-                ? (event) => {
-                    if (event.nativeEvent.actionName === 'increment') {
-                      handleAdjustLineBreaks('increment');
-                    } else if (event.nativeEvent.actionName === 'decrement') {
-                      handleAdjustLineBreaks('decrement');
-                    }
-                  }
-                : undefined
-            }
-            onPress={lineBreaksInteractive ? handleToggleLineBreaks : undefined}
+            accessibilityRole="button"
+            accessibilityLabel={strings.promptScreen.settingsLinkLabel}
+            onPress={() => navigation.navigate('Settings')}
           >
-            <Text style={[styles.exitLink, !lineBreaksInteractive && styles.exitLinkDisabled]}>
-              {effectiveBreakAtChords ? strings.promptScreen.lineBreaksAtChordsLabel : strings.promptScreen.lineBreaksAtWordsLabel}
-            </Text>
-          </Pressable>
-          <Pressable
-            hitSlop={ROW_LINK_HIT_SLOP}
-            accessible
-            accessibilityRole={chordPitchInteractive ? 'adjustable' : undefined}
-            accessibilityLabel={strings.promptScreen.chordPitchText}
-            accessibilityValue={{
-              text: effectiveHigherPitchForChords
-                ? strings.promptScreen.chordPitchOnActionLabel
-                : strings.promptScreen.chordPitchOffActionLabel,
-            }}
-            accessibilityHint={chordPitchInteractive ? hintOrNone(strings.promptScreen.chordPitchHint, reduceHints) : undefined}
-            accessibilityActions={
-              chordPitchInteractive
-                ? [
-                    { name: 'increment', label: strings.promptScreen.chordPitchOnActionLabel },
-                    { name: 'decrement', label: strings.promptScreen.chordPitchOffActionLabel },
-                  ]
-                : undefined
-            }
-            onAccessibilityAction={
-              chordPitchInteractive
-                ? (event) => {
-                    if (event.nativeEvent.actionName === 'increment') {
-                      handleAdjustChordPitch('increment');
-                    } else if (event.nativeEvent.actionName === 'decrement') {
-                      handleAdjustChordPitch('decrement');
-                    }
-                  }
-                : undefined
-            }
-            onPress={chordPitchInteractive ? handleToggleChordPitch : undefined}
-          >
-            <Text style={[styles.exitLink, !chordPitchInteractive && styles.exitLinkDisabled]}>
-              {effectiveHigherPitchForChords ? strings.promptScreen.chordPitchOnLabel : strings.promptScreen.chordPitchOffLabel}
-            </Text>
+            <Text style={styles.exitLink}>{strings.promptScreen.settingsLinkLabel}</Text>
           </Pressable>
           <Pressable
             hitSlop={ROW_LINK_HIT_SLOP}
