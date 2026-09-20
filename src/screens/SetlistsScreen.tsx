@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -120,7 +120,8 @@ export function SetlistsScreen({ navigation }: Props) {
   const handleStartOver = async () => {
     const song = await startOverSetlist();
     if (song) {
-      AccessibilityInfo.announceForAccessibility(strings.setlists.startedOverAnnouncement(song.title));
+      // popTo, not navigate — see PromptScreen's "Library" link for why.
+      navigation.popTo('Prompt');
     }
   };
 

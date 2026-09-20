@@ -301,9 +301,9 @@ export function LibraryScreen({ navigation }: Props) {
   const handleStartOver = useCallback(async () => {
     const song = await startOverSetlist();
     if (song) {
-      AccessibilityInfo.announceForAccessibility(strings.library.startedOverAnnouncement(song.title));
+      navigation.navigate('Prompt');
     }
-  }, [startOverSetlist, strings]);
+  }, [startOverSetlist, navigation]);
 
   const addToSetlistActionLabel = activeSetlist
     ? strings.library.addToSetlistActionLabel(activeSetlist.setlist.name)

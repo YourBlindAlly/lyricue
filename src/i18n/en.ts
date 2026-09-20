@@ -70,7 +70,6 @@ export const en = {
     resumeSetlistHint: 'Double tap to resume. Swipe up or down for start-over or stop-following actions.',
     startOverActionLabel: 'Start Over',
     stopFollowingActionLabel: 'Stop Following',
-    startedOverAnnouncement: (title: string): string => `Started over. ${title}`,
     newSetlistCreatedAnnouncement: (setlistName: string): string => `Created new setlist, ${setlistName}`,
     sourceLabelPasted: 'Pasted',
     sourceLabelImportedFile: 'Imported file',
@@ -272,7 +271,6 @@ export const en = {
     playHint: 'Double tap to play. Swipe up or down for edit or delete actions.',
     stopFollowingActionLabel: 'Stop Following',
     startOverActionLabel: 'Start Over',
-    startedOverAnnouncement: (title: string): string => `Started over. ${title}`,
     refreshActionLabel: 'Refresh Songs',
     refreshDoneAlertTitle: 'Songs refreshed',
     refreshDoneAlertMessage: (refreshed: number, skipped: string[], failed: string[]): string => {

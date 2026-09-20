@@ -72,7 +72,6 @@ export const uk: Strings = {
     resumeSetlistHint: 'Двічі торкніться, щоб продовжити. Проведіть вгору або вниз, щоб почати спочатку або припинити слідування.',
     startOverActionLabel: 'Почати спочатку',
     stopFollowingActionLabel: 'Припинити слідування',
-    startedOverAnnouncement: (title: string) => `Розпочато спочатку. ${title}`,
     newSetlistCreatedAnnouncement: (setlistName: string) => `Створено новий сетлист, ${setlistName}`,
     sourceLabelPasted: 'Вставлено',
     sourceLabelImportedFile: 'Імпортований файл',
@@ -277,7 +276,6 @@ export const uk: Strings = {
     playHint: 'Двічі торкніться, щоб відтворити. Проведіть вгору або вниз для редагування або видалення.',
     stopFollowingActionLabel: 'Припинити слідування',
     startOverActionLabel: 'Почати спочатку',
-    startedOverAnnouncement: (title: string) => `Розпочато спочатку. ${title}`,
     refreshActionLabel: 'Оновити пісні',
     refreshDoneAlertTitle: 'Пісні оновлено',
     refreshDoneAlertMessage: (refreshed: number, skipped: string[], failed: string[]) => {
