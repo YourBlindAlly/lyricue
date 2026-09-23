@@ -9,6 +9,7 @@ import {
   backupSearchResultToDropbox,
   copyToPersonalDropboxIfMissing,
   personalCopyPathForSong,
+  upgradeSearchSongSource,
 } from './backupSearchResult';
 import type { Song } from '../types';
 
@@ -88,5 +89,29 @@ describe('personalCopyPathForSong', () => {
 
   it('is null for songs that did not come from the community library', () => {
     expect(personalCopyPathForSong({ ...base, source: { type: 'manual' } })).toBeNull();
+  });
+});
+
+describe('upgradeSearchSongSource', () => {
+  const base = { id: '1', title: 'T', rawText: 'raw', lines: [], chordedLines: [], sections: [], addedAt: 0 };
+
+  it('switches a search-sourced song to dropbox once the personal copy exists', async () => {
+    mockExists.mockResolvedValue(false);
+    const song: Song = { ...base, source: { type: 'search', path: '/community/T - A [C].pro' } };
+    const upgraded = await upgradeSearchSongSource(song);
+    expect(upgraded.source).toEqual({ type: 'dropbox', path: '/t - a.pro' });
+    expect(mockUpload).toHaveBeenCalledWith('/T - A.pro', 'raw');
+  });
+
+  it('leaves a non-search song untouched', async () => {
+    const song: Song = { ...base, source: { type: 'manual' } };
+    expect(await upgradeSearchSongSource(song)).toBe(song);
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('leaves the song untouched when the copy fails', async () => {
+    mockExists.mockRejectedValue(new Error('Not connected to Dropbox.'));
+    const song: Song = { ...base, source: { type: 'search', path: '/community/T - A [C].pro' } };
+    expect(await upgradeSearchSongSource(song)).toBe(song);
   });
 });

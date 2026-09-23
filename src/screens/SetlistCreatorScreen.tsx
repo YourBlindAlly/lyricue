@@ -7,7 +7,7 @@ import { useAppState } from '../state/AppStateContext';
 import { deleteSetlist, loadSetlist, saveSetlist } from '../setlist/setlistStorage';
 import type { SetlistEntry } from '../setlist/setlistCsv';
 import { entryFor } from '../setlist/entryFor';
-import { ensurePersonalCopyForSong } from '../search/backupSearchResult';
+import { upgradeSearchSongSource } from '../search/backupSearchResult';
 import type { Song } from '../types';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { SwipeActionsRow, type SwipeAction } from '../ui/SwipeActionsRow';
@@ -18,7 +18,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'SetlistCreator'>;
 
 export function SetlistCreatorScreen({ navigation, route }: Props) {
   const strings = useStrings();
-  const { library, reduceHints, activeSetlist, startSetlist } = useAppState();
+  const { library, reduceHints, activeSetlist, startSetlist, addToLibrary } = useAppState();
   const editSetlist = route.params?.editSetlist;
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
@@ -91,10 +91,14 @@ export function SetlistCreatorScreen({ navigation, route }: Props) {
     if (isAdded(song)) {
       return;
     }
-    // A community-library song gets a copy in the user's own Dropbox and
-    // the entry points at it; null (any other song) leaves the entry as-is.
-    const personalPath = await ensurePersonalCopyForSong(song);
-    setEntries((current) => [...current, entryFor(song, personalPath)]);
+    // A community-library song gets a copy in the user's own Dropbox, the
+    // entry points at it, and the library entry itself switches from
+    // "Search" to "Dropbox"; any other song is left as-is.
+    const upgraded = await upgradeSearchSongSource(song);
+    if (upgraded !== song) {
+      await addToLibrary(upgraded);
+    }
+    setEntries((current) => [...current, entryFor(upgraded)]);
   };
 
   const handleRemove = (index: number) => {

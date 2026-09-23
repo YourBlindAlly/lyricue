@@ -12,7 +12,7 @@ import { pickRandomSetlistIndex } from '../setlist/pickRandomSetlistIndex';
 import { fetchMissingSetlistSong } from '../setlist/fetchMissingSetlistSong';
 import { saveSetlist } from '../setlist/setlistStorage';
 import { entryFor, isSongInEntries } from '../setlist/entryFor';
-import { ensurePersonalCopyForSong } from '../search/backupSearchResult';
+import { upgradeSearchSongSource } from '../search/backupSearchResult';
 import { loadReduceHints, saveReduceHints } from '../speech/reduceHintsPreference';
 import type { Setlist, SetlistEntry } from '../setlist/setlistCsv';
 import type { Song } from '../types';
@@ -174,11 +174,15 @@ export function AppStateProvider({
         return { added: false };
       }
       // A community-library song gets a copy in the user's own Dropbox
-      // (never overwriting one already there) and the entry points at it.
-      const personalPath = await ensurePersonalCopyForSong(song);
+      // (never overwriting one already there), the entry points at it, and
+      // the library entry itself switches from "Search" to "Dropbox".
+      const upgraded = await upgradeSearchSongSource(song);
+      if (upgraded !== song) {
+        await addToLibrary(upgraded);
+      }
       const updatedSetlist: Setlist = {
         ...activeSetlist.setlist,
-        entries: [...activeSetlist.setlist.entries, entryFor(song, personalPath)],
+        entries: [...activeSetlist.setlist.entries, entryFor(upgraded)],
       };
       await saveSetlist(updatedSetlist);
       const state: ActiveSetlistState = { ...activeSetlist, setlist: updatedSetlist };
@@ -186,17 +190,20 @@ export function AppStateProvider({
       await saveActiveSetlist(state);
       return { added: true };
     },
-    [activeSetlist]
+    [activeSetlist, addToLibrary]
   );
 
   const createSetlistWithSong = useCallback(
     async (name: string, song: Song): Promise<void> => {
-      const personalPath = await ensurePersonalCopyForSong(song);
-      const setlist: Setlist = { name, entries: [entryFor(song, personalPath)] };
+      const upgraded = await upgradeSearchSongSource(song);
+      if (upgraded !== song) {
+        await addToLibrary(upgraded);
+      }
+      const setlist: Setlist = { name, entries: [entryFor(upgraded)] };
       await saveSetlist(setlist);
       await startSetlist(setlist);
     },
-    [startSetlist]
+    [startSetlist, addToLibrary]
   );
 
   const advanceSetlist = useCallback(

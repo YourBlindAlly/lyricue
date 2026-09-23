@@ -2,11 +2,10 @@ import type { SetlistEntry } from './setlistCsv';
 import { personalCopyPathForSong } from '../search/backupSearchResult';
 import type { Song } from '../types';
 
-/** `pathOverride` points the entry at a different Dropbox file than the song's own, e.g. the user's copy of a community song. */
-export function entryFor(song: Song, pathOverride?: string | null): SetlistEntry {
+export function entryFor(song: Song): SetlistEntry {
   return {
     title: song.title,
-    path: pathOverride ?? (song.source.type === 'dropbox' ? song.source.path : ''),
+    path: song.source.type === 'dropbox' ? song.source.path : '',
   };
 }
 

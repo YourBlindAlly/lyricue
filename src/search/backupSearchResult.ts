@@ -89,3 +89,20 @@ export async function ensurePersonalCopyForSong(song: Song): Promise<string | nu
   }
   return (await copyToPersonalDropboxIfMissing(path, song.rawText)) ? path.toLowerCase() : null;
 }
+
+/**
+ * For a song loaded from the community Search: once a copy exists in the
+ * user's own Dropbox, returns a copy of `song` with its source switched to
+ * that Dropbox file — so the Library shows "Dropbox" instead of "Search"
+ * and points at a file that's genuinely backed up and editable, instead of
+ * staying labeled "Search" forever even after the copy is sitting right
+ * there (raised by Rusty 2026-09-23). Returns `song` unchanged for any
+ * other source, or if a copy couldn't be made (not connected, etc.).
+ */
+export async function upgradeSearchSongSource(song: Song): Promise<Song> {
+  if (song.source.type !== 'search') {
+    return song;
+  }
+  const path = await ensurePersonalCopyForSong(song);
+  return path ? { ...song, source: { type: 'dropbox', path } } : song;
+}

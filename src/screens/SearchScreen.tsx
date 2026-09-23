@@ -6,7 +6,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { useAppState } from '../state/AppStateContext';
 import { buildSongFromFile } from '../parsing/buildSong';
 import { fetchSearchResult, searchLibrary, type SearchResult } from '../search/searchApi';
-import { backupSearchResultToDropbox } from '../search/backupSearchResult';
+import { upgradeSearchSongSource } from '../search/backupSearchResult';
 import { isSearchConfigured } from '../search/config';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
@@ -20,7 +20,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Search'>;
 // browse screen already uses for the personal library fits here too.
 export function SearchScreen({ navigation }: Props) {
   const strings = useStrings();
-  const { loadSong } = useAppState();
+  const { loadSong, addToLibrary } = useAppState();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -65,10 +65,17 @@ export function SearchScreen({ navigation }: Props) {
         return;
       }
       await loadSong(song);
-      // Fire-and-forget, never awaited — see backupSearchResultToDropbox's
-      // doc comment for why this is silent/best-effort like the setlist
-      // backup, not something the user needs to wait on or confirm.
-      backupSearchResultToDropbox(result, content);
+      // Fire-and-forget, never awaited — copies the song to the user's own
+      // Dropbox and, once that succeeds, switches the library entry's
+      // source over to it (addToLibrary, not loadSong, so this can land
+      // later without clobbering whatever's active by then). Silent/
+      // best-effort like the setlist backup — not something the user needs
+      // to wait on or confirm.
+      upgradeSearchSongSource(song).then((upgraded) => {
+        if (upgraded !== song) {
+          void addToLibrary(upgraded);
+        }
+      });
       // popTo, not navigate — see PromptScreen's "Library" link for why.
       navigation.popTo('Prompt');
     } catch (err) {
