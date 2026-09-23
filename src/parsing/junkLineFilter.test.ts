@@ -36,6 +36,18 @@ describe('isJunkLine', () => {
     expect(isJunkLine("I'll leave a tip, then I'm gone")).toBe(false);
   });
 
+  it('flags a "FUN FACT:" trivia aside', () => {
+    // Real file found live 2026-09-23 ("All You Need Is Love", the
+    // Beatles) — a trivia line about the recording session, spoken as a
+    // lyric since it wasn't covered by TIP_RE.
+    expect(isJunkLine('FUN FACT:  Among the backing singers were some famous names.')).toBe(true);
+    expect(isJunkLine('fun fact: the song was recorded live')).toBe(true);
+  });
+
+  it('does not flag a real lyric line that merely contains the words "fun" or "fact"', () => {
+    expect(isJunkLine("It's a fun fact that I love you")).toBe(false);
+  });
+
   it('flags freeform performance notes beyond just capo', () => {
     expect(isJunkLine('Tuning: Drop D')).toBe(true);
     expect(isJunkLine('Strumming pattern: D D U U D U')).toBe(true);

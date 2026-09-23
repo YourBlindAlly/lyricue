@@ -20,6 +20,10 @@ const PERFORMANCE_NOTE_RE = /^(capo|tuning|strum(ming)?( pattern)?|drop\s?d|open
 // ("TIP: play the transposed root chord and add the 5th as necessary") —
 // found in 1000+ files there, none of them a real sung lyric.
 const TIP_RE = /^tip:/i;
+// Same convention, different label — a trivia aside about the song/artist,
+// found live 2026-09-23 ("All You Need Is Love", the Beatles) getting
+// spoken as a lyric since it wasn't covered by TIP_RE.
+const FUN_FACT_RE = /^fun fact:/i;
 // Guitar tab diagrams (six lines of dashes/frets, one per string) and tab
 // notation tacked onto the end of an otherwise-normal chord line both share
 // this distinctive shape: a note letter — optionally flat/sharp, for an
@@ -61,6 +65,7 @@ export function isJunkLine(line: string): boolean {
     URL_RE.test(trimmed) ||
     PERFORMANCE_NOTE_RE.test(trimmed) ||
     TIP_RE.test(trimmed) ||
+    FUN_FACT_RE.test(trimmed) ||
     TAB_DIAGRAM_RE.test(trimmed) ||
     PIPELESS_TAB_DIAGRAM_RE.test(trimmed) ||
     STRAY_PUNCTUATION_RE.test(trimmed)
