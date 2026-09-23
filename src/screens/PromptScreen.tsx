@@ -534,11 +534,17 @@ export function PromptScreen({ navigation }: Props) {
               }}
             >
               <Text style={styles.setlistText} numberOfLines={1}>
-                {strings.promptScreen.fullSetlistText(
-                  activeSetlist.setlist.name,
-                  activeSetlist.currentIndex + 1,
-                  activeSetlist.setlist.entries.length
-                )}
+                {activeSetlist.randomEnabled
+                  ? strings.promptScreen.randomProgressText(
+                      activeSetlist.setlist.name,
+                      activeSetlist.playedIndices?.length ?? 0,
+                      activeSetlist.setlist.entries.length
+                    )
+                  : strings.promptScreen.fullSetlistText(
+                      activeSetlist.setlist.name,
+                      activeSetlist.currentIndex + 1,
+                      activeSetlist.setlist.entries.length
+                    )}
               </Text>
             </View>
           ) : null}

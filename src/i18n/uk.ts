@@ -344,6 +344,8 @@ export const uk: Strings = {
       return parts.length > 0 ? ` — ${parts.join(', ')}` : '';
     },
     fullSetlistText: (name: string, current: number, total: number) => `${name} — пісня ${current} з ${total}`,
+    randomProgressText: (name: string, played: number, total: number) =>
+      `${name} — зіграно ${played} з ${total} пісень`,
     pedalConnectedStatusLabel: 'Педаль: Підключена',
     pedalNotConnectedStatusLabel: 'Педаль: Не підключена',
     voiceLinkLabel: 'Голос',

@@ -339,6 +339,8 @@ export const en = {
       return parts.length > 0 ? ` — ${parts.join(', ')}` : '';
     },
     fullSetlistText: (name: string, current: number, total: number) => `${name} — song ${current} of ${total}`,
+    randomProgressText: (name: string, played: number, total: number): string =>
+      `${name} — ${played} of ${total} songs played`,
     pedalConnectedStatusLabel: 'Pedal: Connected',
     pedalNotConnectedStatusLabel: 'Pedal: Not Connected',
     voiceLinkLabel: 'Voice',
