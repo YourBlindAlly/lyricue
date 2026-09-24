@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -14,6 +14,18 @@ import {
   SORT_MODE_LABEL,
 } from '../library/librarySortPreference';
 import { artistFor, sortLibraryForDisplay } from '../library/sortLibrary';
+import {
+  DEFAULT_FILTER_MODE,
+  loadLibraryFilterMode,
+  nextFilterMode,
+  previousFilterMode,
+  saveLibraryFilterMode,
+  type LibraryFilterMode,
+} from '../library/libraryFilterPreference';
+import { NOTEBOOK_FOLDER } from '../library/notebookFolder';
+import { songsInSetlist } from '../setlist/songsInSetlist';
+import { listDropboxFolder, downloadDropboxFile, moveDropboxFile, type DropboxEntry } from '../cloud/dropbox/dropboxApi';
+import { buildSongFromFile } from '../parsing/buildSong';
 import { hintOrNone } from '../speech/reduceHintsPreference';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { SwipeActionsRow } from '../ui/SwipeActionsRow';
@@ -102,6 +114,47 @@ const SongRow = React.memo(function SongRow({
   );
 });
 
+type NotebookRowProps = {
+  entry: DropboxEntry;
+  accessibilityHint: string | undefined;
+  promoteActionLabel: string;
+  onPress: (entry: DropboxEntry) => void;
+  onPromote: (entry: DropboxEntry) => void;
+};
+
+const NotebookRow = React.memo(function NotebookRow({
+  entry,
+  accessibilityHint,
+  promoteActionLabel,
+  onPress,
+  onPromote,
+}: NotebookRowProps) {
+  return (
+    <SwipeActionsRow
+      containerStyle={styles.songRowWrap}
+      actions={[{ key: 'promote', label: promoteActionLabel, onPress: () => onPromote(entry) }]}
+    >
+      <Pressable
+        style={styles.songRow}
+        onPress={() => onPress(entry)}
+        accessibilityRole="button"
+        accessibilityLabel={entry.name}
+        accessibilityHint={accessibilityHint}
+        accessibilityActions={[{ name: 'promote', label: promoteActionLabel }]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'promote') {
+            onPromote(entry);
+          }
+        }}
+      >
+        <Text style={styles.songTitle} numberOfLines={1}>
+          {entry.name}
+        </Text>
+      </Pressable>
+    </SwipeActionsRow>
+  );
+});
+
 export function LibraryScreen({ navigation }: Props) {
   const strings = useStrings();
   const SOURCE_LABEL: Record<Song['source']['type'], string> = {
@@ -115,6 +168,8 @@ export function LibraryScreen({ navigation }: Props) {
     library,
     isLibraryLoaded,
     loadSong,
+    previewSong,
+    addToLibrary,
     removeFromLibrary,
     reduceHints,
     activeSetlist,
@@ -129,6 +184,10 @@ export function LibraryScreen({ navigation }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
+  const [filterMode, setFilterMode] = useState<LibraryFilterMode>(DEFAULT_FILTER_MODE);
+  const [notebookEntries, setNotebookEntries] = useState<DropboxEntry[] | null>(null);
+  const [notebookError, setNotebookError] = useState<string | null>(null);
+  const [isNotebookBusy, setIsNotebookBusy] = useState(false);
 
   // Raised by Rusty 2026-09-15: no way to get back to the full library once
   // you'd started typing in this box — shown while actively editing it, OR
@@ -145,7 +204,40 @@ export function LibraryScreen({ navigation }: Props) {
 
   useEffect(() => {
     loadLibrarySortMode().then(setSortMode);
+    loadLibraryFilterMode().then(setFilterMode);
   }, []);
+
+  // Swipe up/down while focused is the primary way to change this, same
+  // convention as Sort — tap still cycles forward for the sighted/
+  // VoiceOver-off fallback. Cycles Library -> Active Setlist -> Notebook.
+  const handleAdjustFilter = (direction: 'increment' | 'decrement') => {
+    setFilterMode((current) => {
+      const next = direction === 'increment' ? nextFilterMode(current) : previousFilterMode(current);
+      void saveLibraryFilterMode(next);
+      return next;
+    });
+  };
+
+  const loadNotebookEntries = useCallback(() => {
+    setNotebookEntries(null);
+    setNotebookError(null);
+    listDropboxFolder(NOTEBOOK_FOLDER)
+      .then((entries) => setNotebookEntries(entries.filter((e) => !e.isFolder)))
+      .catch((err) => setNotebookError(err instanceof Error ? err.message : String(err)));
+  }, []);
+
+  // Fetched fresh whenever the Notebook filter becomes active, and again
+  // every time this screen regains focus while it's still selected — a
+  // song promoted from here, or added to the notebook from elsewhere (the
+  // PC, say), should show up without needing to flip the filter off and on.
+  useEffect(() => {
+    if (filterMode !== 'notebook') {
+      return;
+    }
+    loadNotebookEntries();
+    const unsubscribe = navigation.addListener('focus', loadNotebookEntries);
+    return unsubscribe;
+  }, [filterMode, navigation, loadNotebookEntries]);
 
   // Swipe up/down while focused (VoiceOver's native "adjustable" gesture) is
   // the primary way to change this, per the standing rule that every
@@ -159,12 +251,25 @@ export function LibraryScreen({ navigation }: Props) {
     });
   };
 
+  // The pool Sort/Search operate on: the whole library, or — when the
+  // Active Setlist filter is on — narrowed down to just the songs that
+  // setlist references (songsInSetlist only ever returns songs already
+  // resolvable locally; see its own doc comment). Notebook mode never
+  // reaches this at all — it has its own separate list below, since a
+  // notebook song isn't part of `library` in the first place.
+  const librarySource = useMemo(() => {
+    if (filterMode === 'activeSetlist') {
+      return activeSetlist ? songsInSetlist(library, activeSetlist.setlist) : [];
+    }
+    return library;
+  }, [filterMode, library, activeSetlist]);
+
   // 'newest' relies on `library` already arriving newest-first from
   // upsertLibrarySong/loadLibrary — sortLibraryForDisplay leaves that order
   // untouched and only actually re-sorts for the other two modes.
   const sortedLibrary = useMemo(
-    () => sortLibraryForDisplay(library, sortMode),
-    [library, sortMode]
+    () => sortLibraryForDisplay(librarySource, sortMode),
+    [librarySource, sortMode]
   );
 
   // Filters the already-sorted list rather than re-deriving order, so
@@ -315,6 +420,65 @@ export function LibraryScreen({ navigation }: Props) {
     ? strings.library.addToSetlistActionLabel(activeSetlist.setlist.name)
     : strings.library.addToNewSetlistActionLabel;
 
+  const filterModeLabel = (mode: LibraryFilterMode): string => {
+    if (mode === 'library') return strings.library.filterModeLibraryLabel;
+    if (mode === 'activeSetlist') {
+      return activeSetlist ? activeSetlist.setlist.name : strings.library.filterModeNoActiveSetlistLabel;
+    }
+    return strings.library.filterModeNotebookLabel;
+  };
+
+  // Opens a notebook song WITHOUT adding it to the library (previewSong,
+  // not loadSong) — see previewSong's own doc comment for why. Plain
+  // navigate is right here for the same reason as handleOpenSong: Library
+  // is the root screen, so Prompt never already exists at this point.
+  const handleOpenNotebookEntry = useCallback(
+    async (entry: DropboxEntry) => {
+      setIsNotebookBusy(true);
+      try {
+        const text = await downloadDropboxFile(entry.path);
+        const song = buildSongFromFile(text, entry.name, { type: 'dropbox', path: entry.path });
+        if (!song) {
+          Alert.alert(strings.library.emptyNotebookFileAlertTitle, strings.library.emptyNotebookFileAlertMessage(entry.name));
+          return;
+        }
+        await previewSong(song);
+        navigation.navigate('Prompt');
+      } catch (err) {
+        Alert.alert(strings.library.notebookOpenFailedAlertTitle, err instanceof Error ? err.message : String(err));
+      } finally {
+        setIsNotebookBusy(false);
+      }
+    },
+    [previewSong, navigation, strings]
+  );
+
+  // Moves the file out of the notebook subfolder and into the main
+  // Dropbox library root, then adds it to the local library — from this
+  // point on it's a normal song, reachable from Library/Search/setlists
+  // like any other, and no longer shows up in this Notebook filter.
+  const handlePromoteNotebookEntry = useCallback(
+    async (entry: DropboxEntry) => {
+      setIsNotebookBusy(true);
+      try {
+        const destination = `/${entry.name}`;
+        const text = await downloadDropboxFile(entry.path);
+        await moveDropboxFile(entry.path, destination);
+        const song = buildSongFromFile(text, entry.name, { type: 'dropbox', path: destination.toLowerCase() });
+        if (song) {
+          await addToLibrary(song);
+        }
+        setNotebookEntries((current) => (current ?? []).filter((e) => e.path !== entry.path));
+        AccessibilityInfo.announceForAccessibility(strings.library.promotedToLibraryAnnouncement(entry.name));
+      } catch (err) {
+        Alert.alert(strings.library.notebookPromoteFailedAlertTitle, err instanceof Error ? err.message : String(err));
+      } finally {
+        setIsNotebookBusy(false);
+      }
+    },
+    [addToLibrary, strings]
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.headerRow}>
@@ -428,31 +592,58 @@ export function LibraryScreen({ navigation }: Props) {
       </View>
 
       {isLibraryLoaded && library.length > 0 ? (
-        <Pressable
-          style={styles.sortButton}
-          onPress={() => handleAdjustSort('increment')}
-          accessible
-          accessibilityRole="adjustable"
-          accessibilityLabel={strings.library.sortText}
-          accessibilityValue={{ text: SORT_MODE_LABEL[sortMode] }}
-          accessibilityHint={hintOrNone(strings.library.sortButtonHint, reduceHints)}
-          accessibilityActions={[
-            { name: 'increment', label: strings.library.nextSortActionLabel },
-            { name: 'decrement', label: strings.library.previousSortActionLabel },
-          ]}
-          onAccessibilityAction={(event) => {
-            if (event.nativeEvent.actionName === 'increment') {
-              handleAdjustSort('increment');
-            } else if (event.nativeEvent.actionName === 'decrement') {
-              handleAdjustSort('decrement');
-            }
-          }}
-        >
-          <Text style={styles.sortButtonText}>{strings.library.sortButtonLabel(SORT_MODE_LABEL[sortMode])}</Text>
-        </Pressable>
+        <View style={styles.filterSortRow}>
+          <Pressable
+            style={styles.sortButton}
+            onPress={() => handleAdjustFilter('increment')}
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel={strings.library.filterText}
+            accessibilityValue={{ text: filterModeLabel(filterMode) }}
+            accessibilityHint={hintOrNone(strings.library.filterButtonHint, reduceHints)}
+            accessibilityActions={[
+              { name: 'increment', label: strings.library.nextFilterActionLabel },
+              { name: 'decrement', label: strings.library.previousFilterActionLabel },
+            ]}
+            onAccessibilityAction={(event) => {
+              if (event.nativeEvent.actionName === 'increment') {
+                handleAdjustFilter('increment');
+              } else if (event.nativeEvent.actionName === 'decrement') {
+                handleAdjustFilter('decrement');
+              }
+            }}
+          >
+            <Text style={styles.sortButtonText}>{strings.library.filterButtonLabel(filterModeLabel(filterMode))}</Text>
+          </Pressable>
+
+          {filterMode !== 'notebook' ? (
+            <Pressable
+              style={styles.sortButton}
+              onPress={() => handleAdjustSort('increment')}
+              accessible
+              accessibilityRole="adjustable"
+              accessibilityLabel={strings.library.sortText}
+              accessibilityValue={{ text: SORT_MODE_LABEL[sortMode] }}
+              accessibilityHint={hintOrNone(strings.library.sortButtonHint, reduceHints)}
+              accessibilityActions={[
+                { name: 'increment', label: strings.library.nextSortActionLabel },
+                { name: 'decrement', label: strings.library.previousSortActionLabel },
+              ]}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === 'increment') {
+                  handleAdjustSort('increment');
+                } else if (event.nativeEvent.actionName === 'decrement') {
+                  handleAdjustSort('decrement');
+                }
+              }}
+            >
+              <Text style={styles.sortButtonText}>{strings.library.sortButtonLabel(SORT_MODE_LABEL[sortMode])}</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
-      {isLibraryLoaded && library.length > 0 ? (
+      {isLibraryLoaded && library.length > 0 && filterMode !== 'notebook' ? (
         <>
           <Text style={styles.searchLabel} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {strings.library.searchLabel}
@@ -487,10 +678,38 @@ export function LibraryScreen({ navigation }: Props) {
         </>
       ) : null}
 
-      {isLibraryLoaded && library.length === 0 ? (
+      {filterMode === 'notebook' ? (
+        isNotebookBusy ? (
+          <ActivityIndicator color="#fff" style={styles.spinner} />
+        ) : notebookError ? (
+          <Text style={styles.emptyText}>{notebookError}</Text>
+        ) : notebookEntries === null ? (
+          <ActivityIndicator color="#fff" style={styles.spinner} />
+        ) : notebookEntries.length === 0 ? (
+          <Text style={styles.emptyText}>{strings.library.emptyNotebookText}</Text>
+        ) : (
+          <FlatList
+            data={notebookEntries}
+            keyExtractor={(item) => item.path}
+            renderItem={({ item }) => (
+              <NotebookRow
+                entry={item}
+                accessibilityHint={hintOrNone(strings.library.notebookRowAccessibilityHint, reduceHints)}
+                promoteActionLabel={strings.library.promoteToLibraryActionLabel}
+                onPress={handleOpenNotebookEntry}
+                onPromote={handlePromoteNotebookEntry}
+              />
+            )}
+          />
+        )
+      ) : isLibraryLoaded && library.length === 0 ? (
         <Text style={styles.emptyText}>{strings.library.emptyLibraryText}</Text>
+      ) : filterMode === 'activeSetlist' && !activeSetlist ? (
+        <Text style={styles.emptyText}>{strings.library.noActiveSetlistFilterText}</Text>
       ) : isLibraryLoaded && searchQuery.trim() && filteredLibrary.length === 0 ? (
         <Text style={styles.emptyText}>{strings.library.noSearchResultsText(searchQuery.trim())}</Text>
+      ) : isLibraryLoaded && filterMode === 'activeSetlist' && filteredLibrary.length === 0 && activeSetlist ? (
+        <Text style={styles.emptyText}>{strings.library.emptySetlistFilterText(activeSetlist.setlist.name)}</Text>
       ) : (
         <FlatList
           data={filteredLibrary}
@@ -568,10 +787,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  spinner: {
+    marginTop: 20,
+  },
   emptyText: {
     color: '#999',
     fontSize: 15,
     marginTop: 12,
+  },
+  filterSortRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 12,
   },
   sortButton: {
     alignSelf: 'flex-start',
@@ -579,7 +807,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    marginBottom: 12,
   },
   sortButtonText: {
     color: '#4f8cff',

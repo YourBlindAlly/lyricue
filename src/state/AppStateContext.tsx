@@ -36,6 +36,8 @@ type AppStateValue = {
   isLibraryLoaded: boolean;
   /** Sets a song as active (persists it) and adds/updates it in the library. */
   loadSong: (song: Song) => Promise<void>;
+  /** Like loadSong, but does NOT add the song to the library list — for the Notebook filter, which must not surface a not-yet-promoted song anywhere else. */
+  previewSong: (song: Song) => Promise<void>;
   /** Adds/updates a song in the library WITHOUT making it the active song — for bulk import. */
   addToLibrary: (song: Song) => Promise<void>;
   removeFromLibrary: (id: string) => Promise<void>;
@@ -136,6 +138,17 @@ export function AppStateProvider({
     await saveActiveSong(song);
     const updated = await upsertLibrarySong(song);
     setLibrary(updated);
+  }, []);
+
+  // For the Library screen's Notebook filter: makes a song active (so it
+  // opens on the lyrics screen and survives an app restart, same as any
+  // other song) WITHOUT adding it to the library list — a notebook song is
+  // deliberately kept out of Library/Search/setlists until it's promoted,
+  // which is the whole point of having a separate notebook in the first
+  // place. Everywhere else, loadSong (above) is still what's wanted.
+  const previewSong = useCallback(async (song: Song) => {
+    setActiveSong(song);
+    await saveActiveSong(song);
   }, []);
 
   const addToLibrary = useCallback(async (song: Song) => {
@@ -350,6 +363,7 @@ export function AppStateProvider({
         library,
         isLibraryLoaded,
         loadSong,
+        previewSong,
         addToLibrary,
         removeFromLibrary,
         activeSetlist,

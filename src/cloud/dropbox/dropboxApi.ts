@@ -82,6 +82,15 @@ export async function uploadDropboxFile(path: string, content: string): Promise<
   });
 }
 
+/** Moves/renames a file from `fromPath` to `toPath`, creating any missing destination parent folders. */
+export async function moveDropboxFile(fromPath: string, toPath: string): Promise<void> {
+  await authorizedFetch('https://api.dropboxapi.com/2/files/move_v2', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from_path: fromPath, to_path: toPath }),
+  });
+}
+
 /** Deletes a file at `path` — Dropbox moves it to its own trash rather than purging it immediately, so this is recoverable from dropbox.com if needed. */
 export async function deleteDropboxFile(path: string): Promise<void> {
   await authorizedFetch('https://api.dropboxapi.com/2/files/delete_v2', {
