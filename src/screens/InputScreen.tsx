@@ -5,7 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppState } from '../state/AppStateContext';
 import { buildSong } from '../parsing/buildSong';
-import { writeSongEditToDropbox } from '../cloud/dropbox/songWriteBack';
+import { saveSongToDropboxInBackground } from '../cloud/dropbox/saveSongInBackground';
 import { saveCopyToFiles } from '../library/saveCopyToFiles';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
@@ -34,27 +34,10 @@ export function InputScreen({ navigation, route }: Props) {
     }
     await loadSong(song);
     // Send the edit back to the song's Dropbox file in the background (or,
-    // for a song made here, create its file in the notebook folder), so a
-    // reinstall or Refresh Songs doesn't lose it. Never blocks leaving this
-    // screen; the result is spoken by VoiceOver when it is known.
-    writeSongEditToDropbox(song, editSong?.rawText ?? '')
-      .then(async (outcome) => {
-        if (outcome.kind === 'created') {
-          // From now on the song points at its Dropbox file, so later edits write back to it.
-          await updateSongInPlace({ ...song, source: { type: 'dropbox', path: outcome.path } });
-          AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxCreated);
-        } else if (outcome.kind === 'createFailed') {
-          AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxCreateFailed);
-        }
-        if (outcome.kind === 'saved') {
-          AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxSaved);
-        } else if (outcome.kind === 'queued') {
-          AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxQueued);
-        } else if (outcome.kind === 'savedAsCopy') {
-          AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxSavedAsCopy(outcome.name));
-        }
-      })
-      .catch(() => {});
+    // for a song with no Dropbox file yet, create one in the notebook folder),
+    // so a reinstall or Refresh Songs doesn't lose it. Never blocks leaving
+    // this screen; the result is spoken by VoiceOver when it is known.
+    saveSongToDropboxInBackground(song, editSong?.rawText ?? '', updateSongInPlace, strings);
     // popTo, not navigate — see PromptScreen's "Library" link for why. This
     // screen is always pushed on top of either an existing Prompt (editing)
     // or Library (new song); popTo correctly returns to that existing

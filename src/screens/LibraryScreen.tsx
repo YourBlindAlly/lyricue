@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppState } from '../state/AppStateContext';
 import { pickAndImportLocalFile } from '../library/importLocalFile';
+import { saveSongToDropboxInBackground } from '../cloud/dropbox/saveSongInBackground';
 import {
   DEFAULT_SORT_MODE,
   loadLibrarySortMode,
@@ -170,6 +171,7 @@ export function LibraryScreen({ navigation }: Props) {
     loadSong,
     previewSong,
     addToLibrary,
+    updateSongInPlace,
     removeFromLibrary,
     reduceHints,
     activeSetlist,
@@ -316,6 +318,9 @@ export function LibraryScreen({ navigation }: Props) {
       ]);
       if (song) {
         await loadSong(song);
+        // With "save back" on, a copy goes to the Dropbox notebook folder
+        // (and the song then points at it), so it survives a reinstall.
+        saveSongToDropboxInBackground(song, '', updateSongInPlace, strings);
         navigation.navigate('Prompt');
       }
     } catch (err) {

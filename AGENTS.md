@@ -115,9 +115,12 @@ file (`src/cloud/dropbox/songWriteBack.ts`, called from `InputScreen`). Rules:
   connected means total silence.
 - Settings has "Save edits back to Dropbox" (`lyricue.saveBackToDropbox`, default ON).
   Off = no uploads, no new files, no flushing of queued edits.
-- `file` (imported from the Files app) and `demo` songs are not written back: the
-  app keeps no link to the original file. Instead the edit screen has "Save a copy
-  to Files" (share sheet, `src/library/saveCopyToFiles.ts`).
+- `file` songs (imported from the Files app) are treated like `manual` ones: the
+  import itself (LibraryScreen) and any later save create a copy in `/notebook`
+  and switch the song to it (Rusty's choice, 2026-11-16). The app still keeps no
+  link to the original Files file. `demo` songs are never written. The edit screen
+  also has "Save a copy to Files" (share sheet, `src/library/saveCopyToFiles.ts`).
+- Both screens go through `saveSongToDropboxInBackground` (cloud/dropbox).
 
 # Expo HAS CHANGED
 

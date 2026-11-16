@@ -20,8 +20,9 @@ import type { Song } from '../../types';
  * saved as a separate "(phone edit)" file beside it instead. With no
  * connection the edit is queued on the phone and uploaded later.
  *
- * A song made inside LyriCue (source 'manual') has no Dropbox file yet, so
- * its first save creates one in the notebook folder, kept apart from the
+ * A song made inside LyriCue (source 'manual') or imported from the Files
+ * app (source 'file') has no Dropbox file yet, so its first save, or the
+ * import itself, creates one in the notebook folder, kept apart from the
  * main song library until the person promotes it. The caller then switches
  * the song's source to that file.
  *
@@ -156,7 +157,7 @@ export async function writeSongEditToDropbox(song: Song, baselineText: string): 
   if (!(await loadSaveBackToDropbox())) {
     return { kind: 'notApplicable' };
   }
-  if (song.source.type === 'manual') {
+  if (song.source.type === 'manual' || song.source.type === 'file') {
     return createInNotebook(song);
   }
   const path = writeBackPathFor(song);

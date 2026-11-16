@@ -62,6 +62,13 @@ describe('creating a new song', () => {
     expect(mockDownload).not.toHaveBeenCalled();
   });
 
+  it('also creates the file for a song imported from the Files app, even with no edits', async () => {
+    mockUploadNew.mockResolvedValue({ name: 'Old Hymn.txt', path: '/notebook/old hymn.txt' });
+    const out = await writeSongEditToDropbox(manual({ source: { type: 'file' }, title: 'Old Hymn' }), '');
+    expect(out).toEqual({ kind: 'created', path: '/notebook/old hymn.txt', name: 'Old Hymn.txt' });
+    expect(mockUploadNew).toHaveBeenCalledWith('/notebook/Old Hymn.txt', 'la la');
+  });
+
   it('names a song with chords .cho', async () => {
     mockUploadNew.mockResolvedValue({ name: 'x.cho', path: '/notebook/x.cho' });
     await writeSongEditToDropbox(manual({ rawText: '[G]la la' }), '');
@@ -125,8 +132,8 @@ describe('copyPathFor', () => {
 });
 
 describe('writeSongEditToDropbox', () => {
-  it('does nothing for a song imported from Files (no Dropbox file)', async () => {
-    const out = await writeSongEditToDropbox(song({ source: { type: 'file' } }), 'old');
+  it('does nothing for a demo song (no Dropbox file)', async () => {
+    const out = await writeSongEditToDropbox(song({ source: { type: 'demo' } }), 'old');
     expect(out).toEqual({ kind: 'notApplicable' });
     expect(mockDownload).not.toHaveBeenCalled();
     expect(mockUploadNew).not.toHaveBeenCalled();
