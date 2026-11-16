@@ -6,6 +6,7 @@ import { DEFAULT_VOICE_VOLUME, loadVoiceVolume, type VoiceVolume } from './voice
 import { pickVoiceForLanguage } from './voiceForLanguage';
 import { loadLanguageVoiceMap, voiceForLanguageCode, type LanguageVoiceMap } from './languageVoicePreference';
 import type { SpeechSegment } from '../parsing/wrapLines';
+import { shouldUsePannedAudio, speakPanned, stopPannedSpeech } from '../audio/pannedAudio';
 
 const INTERRUPT_SETTLE_MS = 100;
 
@@ -64,6 +65,7 @@ export function useSpeech() {
     return () => {
       mounted.current = false;
       Speech.stop();
+      stopPannedSpeech();
     };
   }, []);
 
@@ -160,34 +162,73 @@ export function useSpeech() {
       const finish = () => {
         if (activeRequestRef.current === requestId) activeRequestRef.current = null;
       };
-      Speech.speak(segment.text, {
-        voice: voiceIdForThisCall ?? undefined,
-        rate: rateRef.current,
-        volume: volumeRef.current,
-        pitch: segment.pitch ?? 1.0,
-        // Gives AVSpeechSynthesizer its own audio session instead of sharing
-        // the app-wide one that the tick/end-of-song sound effects (expo-audio)
-        // also touch — fixed lines "fading" partway through, which turned out
-        // to be same-process session hand-off between the two playback
-        // engines, not the stop()/speak() ordering above.
-        useApplicationAudioSession: false,
-        onDone: () => {
-          if (isLast) {
+      const handleDone = () => {
+        if (isLast) {
+          finish();
+          if (mounted.current) setIsSpeaking(false);
+        } else {
+          speakFrom(index + 1);
+        }
+      };
+      const handleStopped = () => {
+        finish();
+        // Only clear the speaking flag if no newer line has taken over —
+        // a late "stopped" from a cut-off line must not mark the line that
+        // replaced it as finished.
+        if (mounted.current && requestIdRef.current === requestId) setIsSpeaking(false);
+      };
+      const speakStandard = () => {
+        Speech.speak(segment.text, {
+          voice: voiceIdForThisCall ?? undefined,
+          rate: rateRef.current,
+          volume: volumeRef.current,
+          pitch: segment.pitch ?? 1.0,
+          // Gives AVSpeechSynthesizer its own audio session instead of sharing
+          // the app-wide one that the tick/end-of-song sound effects (expo-audio)
+          // also touch — fixed lines "fading" partway through, which turned out
+          // to be same-process session hand-off between the two playback
+          // engines, not the stop()/speak() ordering above.
+          useApplicationAudioSession: false,
+          onDone: handleDone,
+          onStopped: () => {
             finish();
             if (mounted.current) setIsSpeaking(false);
-          } else {
-            speakFrom(index + 1);
-          }
-        },
-        onStopped: () => {
-          finish();
-          if (mounted.current) setIsSpeaking(false);
-        },
-        onError: () => {
-          finish();
-          if (mounted.current) setIsSpeaking(false);
-        },
-      });
+          },
+          onError: () => {
+            finish();
+            if (mounted.current) setIsSpeaking(false);
+          },
+        });
+      };
+
+      // A pan is set (Voice Settings -> Pan LyriCue sound): play this
+      // segment through the native panned-audio engine so it can be kept to
+      // one side. At center this branch is skipped entirely and speech goes
+      // through expo-speech exactly as before. If the panned engine can't
+      // play this voice, fall back to the normal centered path for that
+      // segment rather than going silent mid-song.
+      if (shouldUsePannedAudio()) {
+        speakPanned({
+          text: segment.text,
+          voice: voiceIdForThisCall,
+          rate: rateRef.current,
+          pitch: segment.pitch ?? 1.0,
+          volume: volumeRef.current,
+        })
+          .then((outcome) => {
+            if (outcome === 'done') handleDone();
+            else handleStopped();
+          })
+          .catch(() => {
+            if (!mounted.current || requestIdRef.current !== requestId) {
+              finish();
+              return;
+            }
+            speakStandard();
+          });
+        return;
+      }
+      speakStandard();
     };
 
     (async () => {
@@ -199,6 +240,7 @@ export function useSpeech() {
       // words persist, this wasn't the cause.
       const interrupting = activeRequestRef.current !== null;
       await Speech.stop();
+      stopPannedSpeech();
       if (interrupting) {
         await new Promise((resolve) => setTimeout(resolve, INTERRUPT_SETTLE_MS));
       }
@@ -219,6 +261,7 @@ export function useSpeech() {
   const stopImmediate = useCallback(() => {
     requestIdRef.current++; // invalidates any speakNow() still awaiting Speech.stop() from before this call
     Speech.stop();
+    stopPannedSpeech();
     setIsSpeaking(false);
   }, []);
 

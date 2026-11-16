@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, SectionList, StyleSheet, Switch, Text, View } from 'react-native';
+import { AccessibilityInfo, Pressable, SectionList, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import type { Voice } from 'expo-speech';
@@ -23,7 +23,18 @@ import {
   loadLanguageDetectionEngine,
   saveLanguageDetectionEngine,
 } from '../speech/languageDetectionEnginePreference';
-import { setTickSoundEnabled } from '../feedback/feedback';
+import { setSoundPan, setTickSoundEnabled } from '../feedback/feedback';
+import {
+  DEFAULT_SOUND_PAN,
+  loadSoundPan,
+  nextPanForTap,
+  panLeft,
+  panRight,
+  saveSoundPan,
+  type SoundPan,
+} from '../audio/soundPanPreference';
+import { stopPannedSpeech } from '../audio/pannedAudio';
+import { speakSample } from '../speech/speakSample';
 import {
   DEFAULT_VOICE_RATE,
   decreaseVoiceRate,
@@ -145,6 +156,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
   const [useAppleLanguageDetection, setUseAppleLanguageDetection] = useState(false);
   const [rate, setRate] = useState<VoiceRate>(DEFAULT_VOICE_RATE);
   const [volume, setVolume] = useState<VoiceVolume>(DEFAULT_VOICE_VOLUME);
+  const [soundPan, setSoundPanState] = useState<SoundPan>(DEFAULT_SOUND_PAN);
   // English always, plus whatever other language(s) the device itself is
   // set to (iOS Settings > General > Language & Region) — computed once
   // from expo-localization rather than re-derived on every render.
@@ -152,7 +164,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
 
   useEffect(() => {
     (async () => {
-      const [available, saved, chatterSetting, showLowQ, savedRate, savedVolume, savedTickSound, savedLanguageEngine] =
+      const [available, saved, chatterSetting, showLowQ, savedRate, savedVolume, savedTickSound, savedLanguageEngine, savedPan] =
         await Promise.all([
           Speech.getAvailableVoicesAsync(),
           loadVoicePreference(),
@@ -162,6 +174,7 @@ export function VoiceSettingsScreen({ navigation }: Props) {
           loadVoiceVolume(),
           loadTickSoundEnabled(),
           loadLanguageDetectionEngine(),
+          loadSoundPan(),
         ]);
       setVoices(available);
       setSelectedId(saved);
@@ -171,10 +184,12 @@ export function VoiceSettingsScreen({ navigation }: Props) {
       setVolume(savedVolume);
       setTickSound(savedTickSound);
       setUseAppleLanguageDetection(savedLanguageEngine === 'apple');
+      setSoundPanState(savedPan);
       setPreferredCodes(preferredLanguageCodes(Localization.getLocales()));
     })();
     return () => {
       Speech.stop();
+      stopPannedSpeech();
     };
   }, []);
 
@@ -224,6 +239,42 @@ export function VoiceSettingsScreen({ navigation }: Props) {
     });
   };
 
+  const panValueLabel = (pan: SoundPan) =>
+    pan === 'left'
+      ? strings.voiceSettings.panLeftValue
+      : pan === 'right'
+        ? strings.voiceSettings.panRightValue
+        : strings.voiceSettings.panCenterValue;
+
+  const panSampleText = (pan: SoundPan) =>
+    pan === 'left'
+      ? strings.voiceSettings.panSampleLeft
+      : pan === 'right'
+        ? strings.voiceSettings.panSampleRight
+        : strings.voiceSettings.panSampleCenter;
+
+  // Applies a new pan straight away and speaks a short sample from that side
+  // so the change can be heard (and, if this voice can't be played panned,
+  // heard failing — the sample comes out centered and the user is told, which
+  // is far better to find out here than mid-performance).
+  const applyPan = (next: SoundPan) => {
+    if (next === soundPan) return;
+    setSoundPanState(next);
+    void saveSoundPan(next);
+    void (async () => {
+      await setSoundPan(next);
+      const result = await speakSample({
+        text: panSampleText(next),
+        voice: selectedId,
+        rate,
+        volume,
+      });
+      if (result === 'fallback') {
+        AccessibilityInfo.announceForAccessibility(strings.voiceSettings.panFallbackNotice);
+      }
+    })();
+  };
+
   const handleSelect = (voice: Voice) => {
     setSelectedId(voice.identifier);
     void saveVoicePreference(voice.identifier);
@@ -242,8 +293,15 @@ export function VoiceSettingsScreen({ navigation }: Props) {
   // 2026-09-05: any Preview tap after the very first one in a session could
   // fail silently, read by Rusty as "only the top voice's Preview works").
   const handlePreview = async (voice: Voice) => {
-    await Speech.stop();
-    Speech.speak(strings.voiceSettings.previewSpokenText, { voice: voice.identifier, rate, volume });
+    const result = await speakSample({
+      text: strings.voiceSettings.previewSpokenText,
+      voice: voice.identifier,
+      rate,
+      volume,
+    });
+    if (result === 'fallback') {
+      AccessibilityInfo.announceForAccessibility(strings.voiceSettings.panFallbackNotice);
+    }
   };
 
   // Filters by device language(s) then by quality, but each stage is
@@ -351,6 +409,33 @@ export function VoiceSettingsScreen({ navigation }: Props) {
         <Text style={styles.actionLabel}>{strings.voiceSettings.speakingVolumeText}</Text>
         <Text style={styles.rateValue}>{voiceVolumeLabel(volume)}</Text>
       </View>
+
+      {/* Swipe up/down while focused is the primary gesture (VoiceOver's
+          adjustable element); a plain tap cycles Left -> Center -> Right so
+          it still works without VoiceOver. */}
+      <Pressable
+        style={styles.rateRow}
+        onPress={() => applyPan(nextPanForTap(soundPan))}
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={strings.voiceSettings.panLabel}
+        accessibilityValue={{ text: panValueLabel(soundPan) }}
+        accessibilityHint={hintOrNone(strings.voiceSettings.panHint, reduceHints)}
+        accessibilityActions={[
+          { name: 'increment', label: strings.voiceSettings.panRightActionLabel },
+          { name: 'decrement', label: strings.voiceSettings.panLeftActionLabel },
+        ]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'increment') {
+            applyPan(panRight(soundPan));
+          } else if (event.nativeEvent.actionName === 'decrement') {
+            applyPan(panLeft(soundPan));
+          }
+        }}
+      >
+        <Text style={styles.actionLabel}>{strings.voiceSettings.panLabel}</Text>
+        <Text style={styles.rateValue}>{panValueLabel(soundPan)}</Text>
+      </Pressable>
 
       <ToggleRow
         label={strings.voiceSettings.tickSoundLabel}

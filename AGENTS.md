@@ -70,6 +70,29 @@ in it. Status as of 2026-09-11, update this list as items get done:
   the web copy — the app's existing tests are written against the drop
   behavior and it was a deliberate choice, not an oversight.
 
+## Pan LyriCue sound (added 2026-11-15, not yet tested on a device)
+
+Voice Settings has a "Pan LyriCue sound" control (Left / Center / Right, saved
+under `lyricue.soundPan`). It exists so Rusty can keep LyriCue's voice and
+beeps in his monitor only, on the same side VoiceOver is panned to, while the
+other side of his hard-wired stereo feed stays clean for the PA. Rules for
+anyone touching this:
+
+- **Center must stay the untouched path.** At center, speech goes through
+  `expo-speech` and beeps through `expo-audio` exactly as before. Only a
+  left/right pan routes through `modules/lyricue-panned-audio` (Swift,
+  AVAudioEngine; speech via `AVSpeechSynthesizer.write` buffers into a mono
+  player node with `.pan`). Don't make the native path the default.
+- If the native engine can't play a voice (some voices give no audio through
+  `write`), `useSpeech` falls back to centered `expo-speech` for that segment,
+  and the settings sample announces it. That fallback puts the voice back in
+  the PA feed on purpose: silence mid-song was judged worse.
+- The panned engine uses `.playback` + `.mixWithOthers` (copied from
+  MidiClick) so Loopy Pro / Stage Traxx 4 keep playing; returning to center
+  re-applies the original `doNotMix` mode (`setSoundPan` in `feedback.ts`).
+- The Swift file was written without a local compiler (no Mac); the first CI
+  build is its first compile.
+
 # Expo HAS CHANGED
 
 Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
