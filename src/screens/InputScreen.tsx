@@ -6,6 +6,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { useAppState } from '../state/AppStateContext';
 import { buildSong } from '../parsing/buildSong';
 import { writeSongEditToDropbox } from '../cloud/dropbox/songWriteBack';
+import { saveCopyToFiles } from '../library/saveCopyToFiles';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
 
@@ -14,7 +15,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'NewSong'>;
 export function InputScreen({ navigation, route }: Props) {
   const strings = useStrings();
   const editSong = route.params?.editSong;
-  const { loadSong } = useAppState();
+  const { loadSong, updateSongInPlace } = useAppState();
   const [title, setTitle] = useState(editSong?.title ?? '');
   const [rawText, setRawText] = useState(editSong?.rawText ?? '');
 
@@ -32,28 +33,39 @@ export function InputScreen({ navigation, route }: Props) {
       song.addedAt = editSong.addedAt;
     }
     await loadSong(song);
-    if (editSong) {
-      // Send the edit back to the song's Dropbox file in the background, so a
-      // reinstall or Refresh Songs doesn't lose it. Never blocks leaving this
-      // screen; the result is spoken by VoiceOver when it is known.
-      writeSongEditToDropbox(song, editSong.rawText)
-        .then((outcome) => {
-          if (outcome.kind === 'saved') {
-            AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxSaved);
-          } else if (outcome.kind === 'queued') {
-            AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxQueued);
-          } else if (outcome.kind === 'savedAsCopy') {
-            AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxSavedAsCopy(outcome.name));
-          }
-        })
-        .catch(() => {});
-    }
+    // Send the edit back to the song's Dropbox file in the background (or,
+    // for a song made here, create its file in the notebook folder), so a
+    // reinstall or Refresh Songs doesn't lose it. Never blocks leaving this
+    // screen; the result is spoken by VoiceOver when it is known.
+    writeSongEditToDropbox(song, editSong?.rawText ?? '')
+      .then(async (outcome) => {
+        if (outcome.kind === 'created') {
+          // From now on the song points at its Dropbox file, so later edits write back to it.
+          await updateSongInPlace({ ...song, source: { type: 'dropbox', path: outcome.path } });
+          AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxCreated);
+        } else if (outcome.kind === 'createFailed') {
+          AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxCreateFailed);
+        }
+        if (outcome.kind === 'saved') {
+          AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxSaved);
+        } else if (outcome.kind === 'queued') {
+          AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxQueued);
+        } else if (outcome.kind === 'savedAsCopy') {
+          AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxSavedAsCopy(outcome.name));
+        }
+      })
+      .catch(() => {});
     // popTo, not navigate — see PromptScreen's "Library" link for why. This
     // screen is always pushed on top of either an existing Prompt (editing)
     // or Library (new song); popTo correctly returns to that existing
     // Prompt in the first case, and replaces this screen with a fresh
     // Prompt (rather than leaving it stranded in history) in the second.
     navigation.popTo('Prompt');
+  };
+
+  const handleSaveCopyToFiles = () => {
+    const built = buildSong(rawText, title, { type: 'manual' });
+    saveCopyToFiles(built?.title ?? title, rawText).catch(() => {});
   };
 
   const handleCancel = () => {
@@ -127,6 +139,18 @@ export function InputScreen({ navigation, route }: Props) {
             {editSong ? strings.inputScreen.saveChangesLabel : strings.inputScreen.loadSongLabel}
           </Text>
         </Pressable>
+
+        <Pressable
+          style={[styles.copyButton, !canLoad && styles.copyButtonDisabled]}
+          onPress={handleSaveCopyToFiles}
+          disabled={!canLoad}
+          accessibilityRole="button"
+          accessibilityLabel={strings.inputScreen.saveCopyToFilesLabel}
+          accessibilityHint={strings.inputScreen.saveCopyToFilesHint}
+          accessibilityState={{ disabled: !canLoad }}
+        >
+          <Text style={styles.copyButtonText}>{strings.inputScreen.saveCopyToFilesLabel}</Text>
+        </Pressable>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -183,6 +207,23 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: 'center',
+  },
+  copyButton: {
+    marginTop: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#4f8cff',
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  copyButtonDisabled: {
+    borderColor: '#2a3a5c',
+    opacity: 0.5,
+  },
+  copyButtonText: {
+    color: '#4f8cff',
+    fontSize: 17,
+    fontWeight: '600',
   },
   loadButtonDisabled: {
     backgroundColor: '#2a3a5c',

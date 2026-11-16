@@ -21,6 +21,7 @@ import {
   writeBackPathFor,
   writeSongEditToDropbox,
 } from './songWriteBack';
+import { saveSaveBackToDropbox } from './saveBackPreference';
 import type { Song } from '../../types';
 
 function song(overrides: Partial<Song>): Song {
@@ -47,7 +48,56 @@ beforeEach(async () => {
   mockUploadNew.mockReset();
   mockUploadOverwrite.mockResolvedValue(undefined);
   mockUploadIfRev.mockResolvedValue(undefined);
-  mockUploadNew.mockResolvedValue('copy.cho');
+  mockUploadNew.mockResolvedValue({ name: "copy.cho", path: "/x/copy.cho" });
+});
+
+describe('creating a new song', () => {
+  const manual = (o: Partial<Song> = {}) => song({ source: { type: 'manual' }, title: 'New Tune', rawText: 'la la', ...o });
+
+  it('creates the file in the notebook folder, not the main folder', async () => {
+    mockUploadNew.mockResolvedValue({ name: 'New Tune.txt', path: '/notebook/new tune.txt' });
+    const out = await writeSongEditToDropbox(manual(), '');
+    expect(out).toEqual({ kind: 'created', path: '/notebook/new tune.txt', name: 'New Tune.txt' });
+    expect(mockUploadNew).toHaveBeenCalledWith('/notebook/New Tune.txt', 'la la');
+    expect(mockDownload).not.toHaveBeenCalled();
+  });
+
+  it('names a song with chords .cho', async () => {
+    mockUploadNew.mockResolvedValue({ name: 'x.cho', path: '/notebook/x.cho' });
+    await writeSongEditToDropbox(manual({ rawText: '[G]la la' }), '');
+    expect(mockUploadNew).toHaveBeenCalledWith('/notebook/New Tune.cho', '[G]la la');
+  });
+
+  it('says nothing at all when Dropbox was never connected', async () => {
+    mockUploadNew.mockRejectedValue(new Error('Not connected to Dropbox.'));
+    expect(await writeSongEditToDropbox(manual(), '')).toEqual({ kind: 'notApplicable' });
+  });
+
+  it('reports a failure to create when Dropbox is connected but unreachable', async () => {
+    mockUploadNew.mockRejectedValue(new Error('Network request failed'));
+    expect(await writeSongEditToDropbox(manual(), '')).toEqual({ kind: 'createFailed' });
+  });
+});
+
+describe('the save-back setting', () => {
+  it('does nothing for edits or new songs while off, and keeps queued edits queued', async () => {
+    mockDownload.mockRejectedValue(new Error('Network request failed'));
+    await writeSongEditToDropbox(song({}), 'old');
+    await saveSaveBackToDropbox(false);
+
+    mockDownload.mockReset();
+    expect(await writeSongEditToDropbox(song({ rawText: 'again' }), 'old')).toEqual({ kind: 'notApplicable' });
+    expect(await writeSongEditToDropbox(song({ source: { type: 'manual' } }), '')).toEqual({ kind: 'notApplicable' });
+    expect(await flushPendingSongWrites()).toEqual([]);
+    expect(mockDownload).not.toHaveBeenCalled();
+    expect(mockUploadNew).not.toHaveBeenCalled();
+    expect(await hasPendingSongWrite(PATH)).toBe(true);
+  });
+
+  it('is on by default', async () => {
+    mockDownload.mockResolvedValue({ text: 'old', rev: 'r1' });
+    expect((await writeSongEditToDropbox(song({}), 'old')).kind).toBe('saved');
+  });
 });
 
 describe('writeBackPathFor', () => {
@@ -75,10 +125,11 @@ describe('copyPathFor', () => {
 });
 
 describe('writeSongEditToDropbox', () => {
-  it('does nothing for a song with no Dropbox file', async () => {
-    const out = await writeSongEditToDropbox(song({ source: { type: 'manual' } }), 'old');
+  it('does nothing for a song imported from Files (no Dropbox file)', async () => {
+    const out = await writeSongEditToDropbox(song({ source: { type: 'file' } }), 'old');
     expect(out).toEqual({ kind: 'notApplicable' });
     expect(mockDownload).not.toHaveBeenCalled();
+    expect(mockUploadNew).not.toHaveBeenCalled();
   });
 
   it('does nothing when the text did not actually change', async () => {

@@ -18,6 +18,7 @@ import { loadBreakAtChords, saveBreakAtChords } from '../parsing/chordLineBreaks
 import { loadHigherPitchForChords, saveHigherPitchForChords } from '../speech/chordPitchPreference';
 import { hintOrNone } from '../speech/reduceHintsPreference';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
+import { loadSaveBackToDropbox, saveSaveBackToDropbox } from '../cloud/dropbox/saveBackPreference';
 import { useStrings } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
@@ -89,12 +90,14 @@ export function SettingsScreen({ navigation }: Props) {
   const [includeChords, setIncludeChords] = useState(false);
   const [breakAtChords, setBreakAtChords] = useState(false);
   const [higherPitchForChords, setHigherPitchForChords] = useState(false);
+  const [saveBack, setSaveBackState] = useState(true);
 
   const load = useCallback(() => {
     loadLineLengthPreset().then((v) => setLineLengthPreset(v ?? DEFAULT_LINE_LENGTH_PRESET));
     loadIncludeChords().then((v) => setIncludeChords(v === true));
     loadBreakAtChords().then((v) => setBreakAtChords(v === true));
     loadHigherPitchForChords().then((v) => setHigherPitchForChords(v === true));
+    loadSaveBackToDropbox().then(setSaveBackState);
   }, []);
 
   useEffect(() => {
@@ -113,6 +116,11 @@ export function SettingsScreen({ navigation }: Props) {
   const setBreaks = (next: boolean) => {
     setBreakAtChords(next);
     void saveBreakAtChords(next);
+  };
+
+  const setSaveBack = (next: boolean) => {
+    setSaveBackState(next);
+    void saveSaveBackToDropbox(next);
   };
 
   const setPitch = (next: boolean) => {
@@ -193,6 +201,17 @@ export function SettingsScreen({ navigation }: Props) {
           onIncrement={() => setPitch(true)}
           onDecrement={() => setPitch(false)}
           onPress={() => setPitch(!higherPitchForChords)}
+        />
+        <AdjustableRow
+          label={strings.settingsScreen.saveBackLabel}
+          valueText={saveBack ? strings.settingsScreen.saveBackOn : strings.settingsScreen.saveBackOff}
+          hint={hintOrNone(strings.settingsScreen.saveBackHint, reduceHints)}
+          interactive
+          incrementLabel={strings.settingsScreen.saveBackOn}
+          decrementLabel={strings.settingsScreen.saveBackOff}
+          onIncrement={() => setSaveBack(true)}
+          onDecrement={() => setSaveBack(false)}
+          onPress={() => setSaveBack(!saveBack)}
         />
       </ScrollView>
     </SafeAreaView>

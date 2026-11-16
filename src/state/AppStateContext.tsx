@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { flushPendingSongWrites } from '../cloud/dropbox/songWriteBack';
 import { saveActiveSong } from '../storage/activeSong';
@@ -42,6 +42,8 @@ type AppStateValue = {
   previewSong: (song: Song) => Promise<void>;
   /** Adds/updates a song in the library WITHOUT making it the active song — for bulk import. */
   addToLibrary: (song: Song) => Promise<void>;
+  /** Replaces a song's stored details in the library, and the active song too if it is the same song — without changing which song is active. */
+  updateSongInPlace: (song: Song) => Promise<void>;
   removeFromLibrary: (id: string) => Promise<void>;
   /** The currently loaded setlist and position within it, or null if none is active. */
   activeSetlist: ActiveSetlistState | null;
@@ -164,6 +166,18 @@ export function AppStateProvider({
   const previewSong = useCallback(async (song: Song) => {
     setActiveSong(song);
     await saveActiveSong(song);
+  }, []);
+
+  const activeSongRef = useRef(activeSong);
+  activeSongRef.current = activeSong;
+
+  const updateSongInPlace = useCallback(async (song: Song) => {
+    const updated = await upsertLibrarySong(song);
+    setLibrary(updated);
+    if (activeSongRef.current?.id === song.id) {
+      setActiveSong(song);
+      await saveActiveSong(song);
+    }
   }, []);
 
   const addToLibrary = useCallback(async (song: Song) => {
@@ -380,6 +394,7 @@ export function AppStateProvider({
         loadSong,
         previewSong,
         addToLibrary,
+        updateSongInPlace,
         removeFromLibrary,
         activeSetlist,
         startSetlist,

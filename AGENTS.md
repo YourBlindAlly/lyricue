@@ -107,8 +107,17 @@ file (`src/cloud/dropbox/songWriteBack.ts`, called from `InputScreen`). Rules:
   and retried at launch, on foreground, and before Refresh Songs (which would
   otherwise replace the edit with the old Dropbox text). A second edit while one
   is queued keeps the ORIGINAL baseline.
-- Manual / file / demo songs have no Dropbox file and are deliberately NOT written
-  back yet (would need a new file name and a source switch).
+- A song made inside LyriCue (source `manual`) gets its Dropbox file created in the
+  `/notebook` folder on first save (never the main folder: Rusty wants works in
+  progress kept out of his performance library; promote moves it out). The song's
+  source is then switched to that file via `updateSongInPlace`. Failing to create
+  while Dropbox is connected is announced and retried on the next save; never
+  connected means total silence.
+- Settings has "Save edits back to Dropbox" (`lyricue.saveBackToDropbox`, default ON).
+  Off = no uploads, no new files, no flushing of queued edits.
+- `file` (imported from the Files app) and `demo` songs are not written back: the
+  app keeps no link to the original file. Instead the edit screen has "Save a copy
+  to Files" (share sheet, `src/library/saveCopyToFiles.ts`).
 
 # Expo HAS CHANGED
 

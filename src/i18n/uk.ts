@@ -121,6 +121,10 @@ export const uk: Strings = {
     dropboxQueued: 'Збережено на телефоні. Воно потрапить у Dropbox, коли Dropbox буде доступний.',
     dropboxSavedAsCopy: (name: string) =>
       `Файл у Dropbox було змінено, тому вашу правку збережено окремим файлом: ${name}.`,
+    dropboxCreated: 'Збережено в папці notebook у Dropbox.',
+    dropboxCreateFailed: 'Збережено лише на телефоні. Пісню буде додано до Dropbox, коли ви збережете її наступного разу.',
+    saveCopyToFilesLabel: 'Зберегти копію у Файли',
+    saveCopyToFilesHint: 'Відкриває меню «Поділитися». Виберіть «Зберегти у Файли», щоб обрати місце для копії.',
   },
 
   search: {
@@ -147,6 +151,10 @@ export const uk: Strings = {
     heading: 'Налаштування',
     pedalLinkLabel: 'Педаль і керування',
     voiceLinkLabel: 'Голос',
+    saveBackLabel: 'Зберігати зміни назад у Dropbox',
+    saveBackHint: 'Проведіть угору, щоб увімкнути, вниз, щоб вимкнути. Коли ввімкнено, зміни пісень потрапляють у їхні файли Dropbox, а нові пісні — у папку notebook.',
+    saveBackOn: 'Увімкнено',
+    saveBackOff: 'Вимкнено',
   },
 
   pedalSettings: {

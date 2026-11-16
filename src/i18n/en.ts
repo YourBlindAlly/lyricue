@@ -120,6 +120,10 @@ export const en = {
     dropboxQueued: 'Saved on this phone. It will go to Dropbox when Dropbox can be reached.',
     dropboxSavedAsCopy: (name: string) =>
       `The Dropbox file had changed, so your edit was saved as a separate file named ${name}.`,
+    dropboxCreated: 'Saved to the notebook folder in Dropbox.',
+    dropboxCreateFailed: 'Saved on this phone only. It will be added to Dropbox the next time you save this song.',
+    saveCopyToFilesLabel: 'Save a copy to Files',
+    saveCopyToFilesHint: 'Opens the share sheet. Choose Save to Files to pick where the copy goes.',
   },
 
   search: {
@@ -146,6 +150,10 @@ export const en = {
     heading: 'Settings',
     pedalLinkLabel: 'Pedal & Controls',
     voiceLinkLabel: 'Voice',
+    saveBackLabel: 'Save edits back to Dropbox',
+    saveBackHint: 'Swipe up to turn on, down to turn off. When on, song edits go to their Dropbox file and new songs go to the notebook folder.',
+    saveBackOn: 'On',
+    saveBackOff: 'Off',
   },
 
   pedalSettings: {

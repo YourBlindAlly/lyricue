@@ -126,9 +126,9 @@ export async function uploadDropboxFileIfRevMatches(path: string, content: strin
 /**
  * Writes a brand-new file at `path`, never replacing anything: if a file is
  * already there, Dropbox picks a different name instead. Returns the name
- * the file actually ended up with.
+ * and (lowercase) path the file actually ended up with.
  */
-export async function uploadDropboxFileAsNew(path: string, content: string): Promise<string> {
+export async function uploadDropboxFileAsNew(path: string, content: string): Promise<{ name: string; path: string }> {
   const res = await authorizedFetch('https://content.dropboxapi.com/2/files/upload', {
     method: 'POST',
     headers: {
@@ -137,8 +137,11 @@ export async function uploadDropboxFileAsNew(path: string, content: string): Pro
     },
     body: content,
   });
-  const data = (await res.json()) as { name?: string };
-  return data.name ?? path.split('/').pop() ?? path;
+  const data = (await res.json()) as { name?: string; path_lower?: string };
+  return {
+    name: data.name ?? path.split('/').pop() ?? path,
+    path: data.path_lower ?? path.toLowerCase(),
+  };
 }
 
 /** Moves/renames a file from `fromPath` to `toPath`, creating any missing destination parent folders. */

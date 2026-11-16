@@ -6,6 +6,9 @@ import {
   uploadDropboxFileIfRevMatches,
 } from './dropboxApi';
 import { personalCopyPathForSong } from '../../search/backupSearchResult';
+import { NOTEBOOK_FOLDER } from '../../library/notebookFolder';
+import { songFileName } from '../../library/songFileName';
+import { loadSaveBackToDropbox } from './saveBackPreference';
 import type { Song } from '../../types';
 
 /**
@@ -16,6 +19,13 @@ import type { Song } from '../../types';
  * meantime (say, edited on the PC), nothing is overwritten and the edit is
  * saved as a separate "(phone edit)" file beside it instead. With no
  * connection the edit is queued on the phone and uploaded later.
+ *
+ * A song made inside LyriCue (source 'manual') has no Dropbox file yet, so
+ * its first save creates one in the notebook folder, kept apart from the
+ * main song library until the person promotes it. The caller then switches
+ * the song's source to that file.
+ *
+ * All of it is skipped when the "save back to Dropbox" setting is off.
  */
 
 const PENDING_KEY = 'lyricue.pendingSongWrites';
@@ -32,7 +42,10 @@ export type WriteBackOutcome =
   | { kind: 'notApplicable' }
   | { kind: 'saved' }
   | { kind: 'savedAsCopy'; name: string }
-  | { kind: 'queued' };
+  | { kind: 'queued' }
+  /** A new song was created in the notebook folder; the song should now point at `path`. */
+  | { kind: 'created'; path: string; name: string }
+  | { kind: 'createFailed' };
 
 /** The Dropbox path an edit of this song should be written to, or null if it has no Dropbox file. */
 export function writeBackPathFor(song: Song): string | null {
@@ -82,6 +95,23 @@ function errorHas(err: unknown, text: string): boolean {
   return err instanceof Error && err.message.includes(text);
 }
 
+/** Someone who has never connected Dropbox should never be told about Dropbox. */
+function isNotConnected(err: unknown): boolean {
+  return errorHas(err, 'Not connected to Dropbox');
+}
+
+async function createInNotebook(song: Song): Promise<WriteBackOutcome> {
+  try {
+    const created = await uploadDropboxFileAsNew(
+      `${NOTEBOOK_FOLDER}/${songFileName(song.title, song.rawText)}`,
+      song.rawText
+    );
+    return { kind: 'created', path: created.path, name: created.name };
+  } catch (err) {
+    return isNotConnected(err) ? { kind: 'notApplicable' } : { kind: 'createFailed' };
+  }
+}
+
 /**
  * One attempt to put `write` into Dropbox. Resolves with what happened;
  * throws only for problems worth retrying later (no connection, not signed
@@ -113,8 +143,8 @@ async function attempt(write: PendingSongWrite): Promise<WriteBackOutcome> {
       // Changed between the download and the upload: fall through to a copy.
     }
   }
-  const name = await uploadDropboxFileAsNew(copyPathFor(write.path), write.content);
-  return { kind: 'savedAsCopy', name };
+  const copy = await uploadDropboxFileAsNew(copyPathFor(write.path), write.content);
+  return { kind: 'savedAsCopy', name: copy.name };
 }
 
 /**
@@ -123,6 +153,12 @@ async function attempt(write: PendingSongWrite): Promise<WriteBackOutcome> {
  * `baselineText` is the song's text from before this edit.
  */
 export async function writeSongEditToDropbox(song: Song, baselineText: string): Promise<WriteBackOutcome> {
+  if (!(await loadSaveBackToDropbox())) {
+    return { kind: 'notApplicable' };
+  }
+  if (song.source.type === 'manual') {
+    return createInNotebook(song);
+  }
   const path = writeBackPathFor(song);
   if (!path) {
     return { kind: 'notApplicable' };
@@ -148,6 +184,9 @@ export async function writeSongEditToDropbox(song: Song, baselineText: string): 
 
 /** Tries every queued edit again. Called at app start, when the app returns to the foreground, and before Refresh Songs. */
 export async function flushPendingSongWrites(): Promise<WriteBackOutcome[]> {
+  if (!(await loadSaveBackToDropbox())) {
+    return [];
+  }
   const pending = await loadPending();
   const outcomes: WriteBackOutcome[] = [];
   for (const write of pending) {
