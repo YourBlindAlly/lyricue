@@ -82,6 +82,65 @@ export async function uploadDropboxFile(path: string, content: string): Promise<
   });
 }
 
+/**
+ * Downloads a file and also returns its Dropbox revision id (from the
+ * Dropbox-API-Result response header), so a later upload can be made
+ * conditional on the file not having changed in between.
+ */
+export async function downloadDropboxFileWithRev(path: string): Promise<{ text: string; rev: string | null }> {
+  const res = await authorizedFetch('https://content.dropboxapi.com/2/files/download', {
+    method: 'POST',
+    headers: { 'Dropbox-API-Arg': JSON.stringify({ path }) },
+  });
+  let rev: string | null = null;
+  try {
+    const header = res.headers.get('dropbox-api-result');
+    rev = header ? ((JSON.parse(header) as { rev?: string }).rev ?? null) : null;
+  } catch {
+    rev = null;
+  }
+  return { text: await res.text(), rev };
+}
+
+/**
+ * Overwrites the file at `path` ONLY if its revision is still `rev`. If the
+ * file changed in Dropbox since then, Dropbox refuses and this throws an
+ * error whose message contains "conflict" — nothing is overwritten.
+ */
+export async function uploadDropboxFileIfRevMatches(path: string, content: string, rev: string): Promise<void> {
+  await authorizedFetch('https://content.dropboxapi.com/2/files/upload', {
+    method: 'POST',
+    headers: {
+      'Dropbox-API-Arg': JSON.stringify({
+        path,
+        mode: { '.tag': 'update', update: rev },
+        autorename: false,
+        mute: true,
+      }),
+      'Content-Type': 'application/octet-stream',
+    },
+    body: content,
+  });
+}
+
+/**
+ * Writes a brand-new file at `path`, never replacing anything: if a file is
+ * already there, Dropbox picks a different name instead. Returns the name
+ * the file actually ended up with.
+ */
+export async function uploadDropboxFileAsNew(path: string, content: string): Promise<string> {
+  const res = await authorizedFetch('https://content.dropboxapi.com/2/files/upload', {
+    method: 'POST',
+    headers: {
+      'Dropbox-API-Arg': JSON.stringify({ path, mode: 'add', autorename: true, mute: true }),
+      'Content-Type': 'application/octet-stream',
+    },
+    body: content,
+  });
+  const data = (await res.json()) as { name?: string };
+  return data.name ?? path.split('/').pop() ?? path;
+}
+
 /** Moves/renames a file from `fromPath` to `toPath`, creating any missing destination parent folders. */
 export async function moveDropboxFile(fromPath: string, toPath: string): Promise<void> {
   await authorizedFetch('https://api.dropboxapi.com/2/files/move_v2', {

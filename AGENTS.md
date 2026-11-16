@@ -93,6 +93,23 @@ anyone touching this:
 - The Swift file was written without a local compiler (no Mac); the first CI
   build is its first compile.
 
+## Phone edits written back to Dropbox (added 2026-11-16, not yet tested on a device)
+
+Saving an edit to a song whose source is `dropbox` (or a legacy `search` song,
+which maps to its personal copy) uploads the edited `rawText` to that Dropbox
+file (`src/cloud/dropbox/songWriteBack.ts`, called from `InputScreen`). Rules:
+
+- Overwrite the original file, but ONLY if the Dropbox text still equals the
+  text the phone had before the edit (and the revision matches). If it changed
+  in Dropbox meanwhile, never overwrite: save `"<name> (phone edit).<ext>"`
+  beside it. Rusty chose "overwrite the original" over a second file.
+- Offline or any other failure: the edit is queued under `lyricue.pendingSongWrites`
+  and retried at launch, on foreground, and before Refresh Songs (which would
+  otherwise replace the edit with the old Dropbox text). A second edit while one
+  is queued keeps the ORIGINAL baseline.
+- Manual / file / demo songs have no Dropbox file and are deliberately NOT written
+  back yet (would need a new file name and a source switch).
+
 # Expo HAS CHANGED
 
 Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.

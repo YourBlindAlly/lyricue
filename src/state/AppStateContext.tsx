@@ -1,4 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
+import { flushPendingSongWrites } from '../cloud/dropbox/songWriteBack';
 import { saveActiveSong } from '../storage/activeSong';
 import {
   clearActiveSetlist,
@@ -126,6 +128,19 @@ export function AppStateProvider({
     });
     loadActiveSetlist().then(setActiveSetlistState);
     loadReduceHints().then(setReduceHintsState);
+  }, []);
+
+  // Phone edits that couldn't reach Dropbox when they were saved (no signal)
+  // are retried at launch and every time the app comes back to the foreground.
+  useEffect(() => {
+    const retry = () => {
+      flushPendingSongWrites().catch(() => {});
+    };
+    retry();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') retry();
+    });
+    return () => sub.remove();
   }, []);
 
   const setReduceHints = useCallback(async (value: boolean) => {

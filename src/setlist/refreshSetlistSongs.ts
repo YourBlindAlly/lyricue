@@ -1,5 +1,6 @@
 import { downloadDropboxFile } from '../cloud/dropbox/dropboxApi';
 import { buildSongFromFile } from '../parsing/buildSong';
+import { flushPendingSongWrites } from '../cloud/dropbox/songWriteBack';
 import { ensurePersonalCopyForSong } from '../search/backupSearchResult';
 import { resolveSetlistEntry } from './resolveSetlistEntry';
 import type { Setlist } from './setlistCsv';
@@ -31,6 +32,9 @@ export async function refreshSetlistSongs(
   saveSong: (song: Song) => Promise<void>
 ): Promise<RefreshResult> {
   const result: RefreshResult = { refreshed: 0, skipped: [], failed: [] };
+  // Phone edits still waiting to go to Dropbox must get there first, or the
+  // fresh download below would replace them with the old Dropbox text.
+  await flushPendingSongWrites().catch(() => []);
   for (const entry of setlist.entries) {
     const existing = resolveSetlistEntry(entry, library);
     let path = entry.path;

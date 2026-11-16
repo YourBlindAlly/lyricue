@@ -5,6 +5,10 @@ jest.mock('../cloud/dropbox/dropboxApi', () => ({
   uploadDropboxFile: jest.fn(),
 }));
 
+jest.mock('../cloud/dropbox/songWriteBack', () => ({
+  flushPendingSongWrites: jest.fn().mockResolvedValue([]),
+}));
+
 import { refreshSetlistSongs } from './refreshSetlistSongs';
 import type { Song } from '../types';
 

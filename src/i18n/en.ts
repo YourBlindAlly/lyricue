@@ -116,6 +116,10 @@ export const en = {
       'Paste or speak your lyrics, line by line, separating lines with Enter or Return. Mark song sections with dash-dash chorus, or square brackets chorus, if you like.',
     saveChangesLabel: 'Save Changes',
     loadSongLabel: 'Load Song',
+    dropboxSaved: 'Saved to Dropbox.',
+    dropboxQueued: 'Saved on this phone. It will go to Dropbox when Dropbox can be reached.',
+    dropboxSavedAsCopy: (name: string) =>
+      `The Dropbox file had changed, so your edit was saved as a separate file named ${name}.`,
   },
 
   search: {

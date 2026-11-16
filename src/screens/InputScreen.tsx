@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AccessibilityInfo, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppState } from '../state/AppStateContext';
 import { buildSong } from '../parsing/buildSong';
+import { writeSongEditToDropbox } from '../cloud/dropbox/songWriteBack';
 import { LINK_HIT_SLOP } from '../ui/hitSlop';
 import { useStrings } from '../i18n';
 
@@ -31,6 +32,22 @@ export function InputScreen({ navigation, route }: Props) {
       song.addedAt = editSong.addedAt;
     }
     await loadSong(song);
+    if (editSong) {
+      // Send the edit back to the song's Dropbox file in the background, so a
+      // reinstall or Refresh Songs doesn't lose it. Never blocks leaving this
+      // screen; the result is spoken by VoiceOver when it is known.
+      writeSongEditToDropbox(song, editSong.rawText)
+        .then((outcome) => {
+          if (outcome.kind === 'saved') {
+            AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxSaved);
+          } else if (outcome.kind === 'queued') {
+            AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxQueued);
+          } else if (outcome.kind === 'savedAsCopy') {
+            AccessibilityInfo.announceForAccessibility(strings.inputScreen.dropboxSavedAsCopy(outcome.name));
+          }
+        })
+        .catch(() => {});
+    }
     // popTo, not navigate — see PromptScreen's "Library" link for why. This
     // screen is always pushed on top of either an existing Prompt (editing)
     // or Library (new song); popTo correctly returns to that existing
