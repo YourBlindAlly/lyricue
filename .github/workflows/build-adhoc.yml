@@ -1,0 +1,30 @@
+name: Build and publish ad hoc
+
+# Signed Ad Hoc build for Rusty's own registered phones, published to the
+# install page at https://yourblindally.github.io/bucket/ (see the shared
+# workflow in YourBlindAlly/bucket). Manual only. Uses the same bundle ID as
+# the TestFlight build, so it installs over the TestFlight copy and keeps the
+# saved settings.
+#
+# Needs repo secrets ASC_KEY_P8, ASC_KEY_ID, ASC_ISSUER_ID, BUCKET_TOKEN and
+# the repo variable APPLE_TEAM_ID (set by ios-signing-tools\add-app-secrets.bat).
+#
+# Not injected here, unlike build-testflight.yml: the search backend URL and
+# secret. Song search will not work in an ad hoc build until the shared
+# workflow can pass those through.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: YourBlindAlly/bucket/.github/workflows/build-adhoc-expo.yml@main
+    with:
+      app_name: LyriCue
+      scheme: LyriCue
+      bundle_id: com.rustyperez.cueme
+      team_id: ${{ vars.APPLE_TEAM_ID }}
+    secrets:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      BUCKET_TOKEN: ${{ secrets.BUCKET_TOKEN }}
